@@ -1,3 +1,4 @@
+<!-- eslint-disable prettier/prettier -->
 <template>
   <nav>
     <router-link to="/">Home</router-link> |
@@ -5,7 +6,7 @@
   </nav>
   <router-view />
 </template>
-
+<!-- eslint-disable prettier/prettier -->
 <style>
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
