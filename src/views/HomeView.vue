@@ -145,9 +145,9 @@ export default {
 .folder-card {
   height: 100%;
   transition: all 0.3s ease;
-  border-radius: 8px;
+  /* border-radius: 8px; */
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); */
   position: relative;
 }
 
@@ -236,8 +236,8 @@ header {
 }
 
 .project-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  /* border: 1px solid #ddd;
+  border-radius: 8px; */
   padding: 15px;
   text-align: center;
 }
