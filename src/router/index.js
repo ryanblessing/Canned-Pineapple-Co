@@ -20,11 +20,11 @@ const routes = [{
     name: "about",
     component: () => import("../views/AboutView.vue"),
   },
-  {
-    path: "/shop",
-    name: "shop",
-    component: () => import("../views/Shop.vue"),
-  },
+  // {
+  //   path: "/shop",
+  //   name: "shop",
+  //   component: () => import("../views/Shop.vue"),
+  // },
   {
     path: "/contact",
     name: "contact",

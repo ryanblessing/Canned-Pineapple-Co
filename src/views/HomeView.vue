@@ -21,7 +21,6 @@
             </v-img>
             <v-card-text>
               <div>
-                <p class="folder-items">{{ folder.items }} items</p>
                 <v-btn
                   color="primary"
                   :to="`/folder/${encodeURIComponent(folder.path)}`"
@@ -77,9 +76,14 @@ export default {
           return;
         }
 
-        // Fetch all folders
+        // Fetch all folders and filter out unwanted ones
         const allFolders = await fetchAllFolders();
-        folders.value = allFolders.map(async folder => {
+        const filteredFolders = allFolders.filter(folder => {
+          const lowerName = folder.name.toLowerCase();
+          return !['deliverables', 'proofs', 'website photos'].includes(lowerName);
+        });
+        
+        folders.value = filteredFolders.map(async folder => {
           try {
             // Fetch thumbnail for folder
             const thumbnail = await fetchImagesFromFolder(folder.path);
