@@ -30,15 +30,22 @@ const year = new Date().getFullYear();
 </script>
 <!-- eslint-disable prettier/prettier -->
 <style>
+@import url('https://fonts.cdnfonts.com/css/gotham');
+
+:root {
+  --font-gotham: 'Gotham', sans-serif;
+}
+
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-gotham);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
   display: flex;
-  flex-direction: column; /* To push the footer to the bottom */
-  min-height: 100vh; /* Ensure the app takes at least the full viewport height */
+  flex-direction: column;
+  min-height: 100vh;
+  font-weight: 500; /* Medium weight for Gotham */
 }
 
 nav {

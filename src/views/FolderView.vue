@@ -15,10 +15,14 @@
       </v-col>
     </v-row>
     <v-row>
-      <v-col v-for="image in images" :key="image.id" cols="12" sm="6" md="4" lg="3">
-        <v-card>
-          <v-img :src="image.thumbnailUrl" height="200" cover>
-            <v-card-title>{{ image.name }}</v-card-title>
+      <v-col v-for="(image, index) in images" :key="index" cols="12" sm="6" md="4" lg="3">
+        <v-card class="image-card">
+          <v-img :src="image" height="300" cover class="image-preview">
+            <template v-slot:placeholder>
+              <v-row class="fill-height ma-0" align="center" justify="center">
+                <v-progress-circular indeterminate color="grey lighten-5"></v-progress-circular>
+              </v-row>
+            </template>
           </v-img>
         </v-card>
       </v-col>
@@ -38,18 +42,21 @@ const breadcrumbs = ref([])
 
 async function fetchFolderImages() {
   try {
-    images.value = await fetchImagesFromFolder(folderName.value)
-    console.log('images.value', images.value)
+    const imageUrls = await fetchImagesFromFolder(folderName.value);
+    images.value = imageUrls;
     
     // Build breadcrumbs
-    const pathParts = folderName.value.split('/')
-    breadcrumbs.value = pathParts.map((part, index) => ({
-      title: part,
-      disabled: index === pathParts.length - 1,
-      href: `/${pathParts.slice(0, index + 1).join('/')}`
-    }))
+    const pathParts = folderName.value.split('/').filter(part => part);
+    breadcrumbs.value = [
+      { title: 'Home', disabled: false, href: '/' },
+      ...pathParts.map((part, index) => ({
+        title: part,
+        disabled: index === pathParts.length - 1,
+        href: `/${pathParts.slice(0, index + 1).join('/')}`
+      }))
+    ];
   } catch (error) {
-    console.error('Error fetching folder images:', error)
+    console.error('Error fetching folder images:', error);
   }
 }
 
@@ -57,12 +64,30 @@ onMounted(fetchFolderImages)
 </script>
 
 <style scoped>
-.v-card {
-  margin: 16px;
+.image-card {
+  margin: 8px;
   transition: transform 0.2s;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.v-card:hover {
+.image-card:hover {
   transform: translateY(-5px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.image-preview {
+  flex-grow: 1;
+  object-fit: cover;
+}
+
+.v-card-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+  padding: 8px;
 }
 </style>

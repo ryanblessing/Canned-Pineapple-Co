@@ -83,12 +83,13 @@ export default {
           try {
             // Fetch thumbnail for folder
             const thumbnail = await fetchImagesFromFolder(folder.path);
+            console.log('thumbnail', thumbnail)
             return {
               id: folder.path,
               name: folder.name,
               path: folder.path,
               items: folder.items || 0,
-              thumbnail: thumbnail[0] || '/placeholder-image.jpg'
+              thumbnail: thumbnail && thumbnail.length > 0 ? thumbnail[0] : '/public/placeholder-image.jpg'
             };
           } catch (err) {
             console.error(`Error fetching thumbnail for ${folder.name}:`, err);
@@ -97,7 +98,7 @@ export default {
               name: folder.name,
               path: folder.path,
               items: folder.items || 0,
-              thumbnail: '/placeholder-image.jpg'
+              thumbnail: '/public/placeholder-image.jpg'
             };
           }
         });

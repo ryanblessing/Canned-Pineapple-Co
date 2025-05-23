@@ -84,12 +84,15 @@ async function fetchImagesFromFolder(folderPath) {
           const existingLinksResponse = await dbx.sharingListSharedLinks({ path: file.path_lower, direct_only: true })
           const existingLinks = existingLinksResponse.result.links
 
+          let url;
           if (existingLinks.length > 0) {
-            return existingLinks[0].url.replace('?dl=0', '?raw=1')
+            url = existingLinks[0].url;
           } else {
-            const newLinkResponse = await dbx.sharingCreateSharedLinkWithSettings({ path: file.path_lower })
-            return newLinkResponse.result.url.replace('?dl=0', '?raw=1')
+            const newLinkResponse = await dbx.sharingCreateSharedLinkWithSettings({ path: file.path_lower });
+            url = newLinkResponse.result.url;
           }
+          // Convert to direct download link
+          return url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
         } catch (error) {
           console.error('Error getting or creating link for file:', file.name, error)
           return null
