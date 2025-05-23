@@ -7,14 +7,35 @@
 
     <main>
       <div class="project-grid">
-        <div v-for="image in images" :key="image.id" class="project-card">
-          <h2>{{ image.name }}</h2>
-          <img :src="image.url" :alt="image.name">
-          <p>{{ image.path }}</p>
+        <div v-for="folder in folders" :key="folder.id" class="project-card">
+          <v-card class="folder-card">
+            <v-img
+              :src="folder.thumbnailUrl"
+              height="200"
+              cover
+              class="folder-thumbnail"
+            >
+              <v-card-title>
+                {{ folder.name }}
+              </v-card-title>
+            </v-img>
+            <v-card-text>
+              <div>
+                <p class="folder-items">{{ folder.items }} items</p>
+                <v-btn
+                  color="primary"
+                  :to="`/folder/${folder.path}`"
+                  class="view-folder-btn"
+                >
+                  View Folder
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
         </div>
       </div>
       <div v-if="loading" class="loading">
-        Loading images...
+        Loading folders...
       </div>
       <div v-if="error" class="error">
         {{ error }}
@@ -24,20 +45,34 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
-import { useDropboxImages } from '@/api/dropbox';
+import { ref } from 'vue';
+// import { fetchImagesByFolder } from '../api/dropbox';
+import {fetchImagesByFolder, listFolders} from '../api/dropbox';
+
 
 export default {
-  name: "HomeView",
   setup() {
-    const { images, loading, error, fetchImages } = useDropboxImages();
+    const folders = ref([]);
+    const loading = ref(true);
+    const error = ref(null);
 
-    onMounted(() => {
-      fetchImages('High Street Deli');
-    });
+    const fetchFoldersData = async () => {
+      try {
+        loading.value = true
+        error.value = null
+        folders.value = await listFolders()
+      } catch (err) {
+        error.value = err.message
+      } finally {
+        loading.value = false
+      }
+    }
+
+    // Fetch folders when component mounts
+    fetchFoldersData();
 
     return {
-      images,
+      folders,
       loading,
       error,
     };
@@ -46,18 +81,76 @@ export default {
 </script>
 
 <style scoped>
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+  padding: 2rem 0;
+}
+
+/* .folder-card {
+  transition: transform 0.2s ease;
+} */
+
+.folder-card:hover {
+  transform: translateY(-5px);
+}
+
+.folder-thumbnail {
+  position: relative;
+}
+
+.folder-title {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-weight: bold;
+}
+
+.folder-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.folder-items {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.view-folder-btn {
+  margin-top: 1rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #ff4444;
+}
+</style>
+
+<style scoped>
 header {
   padding: 20px;
   text-align: center;
   margin-bottom: 20px;
-  font-family: 'Gotham Pro', sans-serif;
 }
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  padding: 20px;
+  grid-template-columns: repeat(2, 1fr); /* exactly two columns */
+  gap: 2rem;
+  padding: 2rem 0;
 }
 
 .project-card {

@@ -9,74 +9,96 @@ if (!ACCESS_TOKEN) {
   console.error('Warning: Dropbox access token not found. Please set VITE_DROPBOX_ACCESS_TOKEN in your .env file.');
 }
 
-export const fetchImagesByFolder = async (folderPath = '') => {
+async function listFolders() {
   try {
-    // Ensure the path starts with a forward slash
-    const normalizedPath = folderPath ? `/${folderPath}`.replace(/\/+/g, '/') : '';
-    
-    const response = await dbx.filesListFolder({
-      path: normalizedPath,
-      recursive: false,
-      include_media_info: true,
-    });
+    const response = await dbx.filesListFolder({ path: '', recursive: false });
 
-    return response.entries
-      .filter(item => item.is_downloadable && item.media_info?.metadata?.dimensions)
-      .map(item => ({
-        id: item.id,
-        name: item.name,
-        path: item.path_display,
-        dimensions: item.media_info.metadata.dimensions,
-      }));
-  } catch (error) {
-    console.error('Error fetching images from Dropbox:', error);
-    throw error;
+    const folders = response.result.entries.filter(
+      (entry) => entry[".tag"] === "folder"
+    );
+
+    return folders.map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      path: folder.path_lower,
+      thumbnailUrl: 'https://via.placeholder.com/300x200?text=' + encodeURIComponent(folder.name),
+      items: '–' // you can customize or fetch file count later
+    }));
+  } catch (err) {
+    console.error('Error listing folders:', err);
+    return [];
   }
-};
+}
 
-export const getDropboxImageUrl = async (path) => {
+
+async function fetchImagesByFolder(folderName) {
   try {
-    const response = await dbx.filesGetTemporaryLink({ path });
-    return response.link;
-  } catch (error) {
-    console.error('Error getting temporary link:', error);
-    throw error;
-  }
-};
+    const response = await dbx.filesListFolder({ path: '', recursive: true })
 
-export const useDropboxImages = () => {
-  const images = ref([]);
-  const loading = ref(false);
-  const error = ref(null);
-
-  const fetchImages = async (folderPath = '') => {
-    try {
-      loading.value = true;
-      error.value = null;
-      const imageList = await fetchImagesByFolder(folderPath);
-      images.value = await Promise.all(
-        imageList.map(async (img) => ({
-          ...img,
-          url: await getDropboxImageUrl(img.path)
-        }))
-      );
-    } catch (err) {
-      error.value = err.message;
-    } finally {
-      loading.value = false;
+    if (!response || !response.result || !response.result.entries) {
+      console.error('No entries returned from Dropbox:', response)
+      return
     }
-  };
+   
+    const entries = response.result.entries
+    const folderEntry = entries.find(
+      e => e['.tag'] === 'folder' && e.name === folderName
+    )
 
-  return {
-    images,
-    loading,
-    error,
-    fetchImages,
-  };
-};
+    if (!folderEntry) {
+      console.error(`Folder "${folderName}" not found.`)
+      return
+    }
 
-export default {
-  fetchImagesByFolder,
-  getDropboxImageUrl,
-  useDropboxImages,
-};
+    const folderPath = folderEntry.path_lower
+    const folderListResponse = await dbx.filesListFolder({ path: folderPath })
+    let { entries: folderFiles, has_more, cursor } = folderListResponse.result
+
+    if (!folderFiles) {
+      console.error(`No files found in folder "${folderName}" at path: ${folderPath}`)
+      return
+    }
+
+    while (has_more) {
+      const res = await dbx.filesListFolderContinue({ cursor })
+      folderFiles = [...folderFiles, ...res.entries]
+      has_more = res.has_more
+      cursor = res.cursor
+    }
+
+    const isImage = name => /\.(jpe?g|png)$/i.test(name)
+    const imageFiles = folderFiles.filter(e => e['.tag'] === 'file' && isImage(e.name))
+
+  const urls = await Promise.all(
+    imageFiles.map(async (file) => {
+      try {
+        const existingLinksResponse = await dbx.sharingListSharedLinks({ path: file.path_lower, direct_only: true })
+        const existingLinks = existingLinksResponse.result.links
+
+        if (existingLinks.length > 0) {
+          return existingLinks[0].url.replace('?dl=0', '?raw=1')
+        } else {
+          const newLinkResponse = await dbx.sharingCreateSharedLinkWithSettings({ path: file.path_lower })
+          return newLinkResponse.result.url.replace('?dl=0', '?raw=1')
+        }
+      } catch (error) {
+        console.error('Error getting or creating link for file:', file.name, error)
+        return null
+      }
+    })
+  )
+    console.log(`Images with tag "${folderName}":`, urls)
+    return urls.map((url, i) => ({
+      id: imageFiles[i].id,
+      name: imageFiles[i].name,
+      thumbnailUrl: url,
+      path: imageFiles[i].path_lower,
+      items: 1 // optional, if you want to display number of images
+    }))
+  } catch (error) {
+    console.error('Error:', error)
+    return []
+    }
+}
+
+export { fetchImagesByFolder, listFolders }
