@@ -2,66 +2,60 @@
 <template>
   <v-container fluid>
     <header>
-      <h1>Canned Pinapple Company </h1>
+      <h1>Canned Pinapple Company</h1>
     </header>
 
     <main>
       <div class="project-grid">
-        <div v-for="project in projects" :key="project.id" class="project-card">
-          <h2>{{ project.title }}</h2>
-          <img :src="project.image" :alt="project.title">
-          <p>{{ project.description }}</p>
-        </div> 
+        <div v-for="image in images" :key="image.id" class="project-card">
+          <h2>{{ image.name }}</h2>
+          <img :src="image.url" :alt="image.name">
+          <p>{{ image.path }}</p>
+        </div>
+      </div>
+      <div v-if="loading" class="loading">
+        Loading images...
+      </div>
+      <div v-if="error" class="error">
+        {{ error }}
       </div>
     </main>
   </v-container>
 </template>
-<!-- eslint-disable prettier/prettier -->
+
 <script>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useDropboxImages } from '@/api/dropbox';
 
 export default {
   name: "HomeView",
   setup() {
-    // Sample project data (you'll likely fetch this from an API or data file)
-    const projects = ref([
-      {
-        id: 1,
-        title: 'Copperhead Tattoo Parlour',
-        image: 'https://www.dropbox.com/scl/fo/glpip3lf292inlrqa5dt4/AHo5pbz3TAHoyYrlUWQhXrU/Copperhead%20Tattoo%20Parlour?e=3&preview=Copperhead+Tattoo+Parlour-2.jpg&rlkey=ittjbrkatj94seh8c9mzc9dnh&subfolder_nav_tracking=1&st=1y6rj1su&dl=0',
-        description: 'A brief description of Project Alpha and its key features.'
-      },
-      {
-        id: 2,
-        title: 'Project Beta',
-        image: 'https://via.placeholder.com/300x200/0000FF/FFFFFF?Text=Beta', // Another example
-        description: 'Project Beta: An exciting endeavor with innovative solutions.'
-      },
-      {
-        id: 3,
-        title: 'Project Gamma',
-        image: 'https://via.placeholder.com/300x200/FF0000',
-        description: 'Exploring the possibilities with Project Gamma and its unique approach.'
-      },
-    ]);
+    const { images, loading, error, fetchImages } = useDropboxImages();
+
+    onMounted(() => {
+      fetchImages('High Street Deli');
+    });
 
     return {
-      projects,
+      images,
+      loading,
+      error,
     };
   },
 };
 </script>
-<!-- eslint-disable prettier/prettier -->
+
 <style scoped>
 header {
   padding: 20px;
   text-align: center;
   margin-bottom: 20px;
+  font-family: 'Gotham Pro', sans-serif;
 }
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
   padding: 20px;
 }
@@ -88,5 +82,17 @@ header {
 .project-card p {
   font-size: 0.9em;
   color: #555;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 20px;
+  color: #ff4444;
 }
 </style>
