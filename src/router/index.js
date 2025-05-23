@@ -11,31 +11,24 @@ const routes = [{
     component: HomeView,
   },
   {
+    path: "/folder/:folderName",
+    name: "folder",
+    component: () => import("../views/FolderView.vue"),
+  },
+  {
     path: "/about",
     name: "about",
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
-    component: () =>
-      import( /* webpackChunkName: "about" */ "../views/AboutView.vue"),
+    component: () => import("../views/AboutView.vue"),
   },
   {
     path: "/shop",
     name: "shop",
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
-    component: () =>
-      import( /* webpackChunkName: "shop" */ "../views/Shop.vue"),
+    component: () => import("../views/Shop.vue"),
   },
   {
     path: "/contact",
     name: "contact",
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
-    component: () =>
-      import( /* webpackChunkName: "contact" */ "../views/Contact.vue"),
+    component: () => import("../views/Contact.vue"),
   },
 ];
 

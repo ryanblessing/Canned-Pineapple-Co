@@ -17,10 +17,11 @@ const vuetify = createVuetify({
   }
 })
 
-createApp(App)
+const app = createApp(App)
   .use(store)
   .use(router)
   .use(vuetify)
   .component('font-awesome-icon', FontAwesomeIcon)
   .component('font-awesome-layers', FontAwesomeLayers)
-  .mount('#app')
+
+app.mount('#app')

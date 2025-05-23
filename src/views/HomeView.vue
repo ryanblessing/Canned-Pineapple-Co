@@ -24,7 +24,7 @@
                 <p class="folder-items">{{ folder.items }} items</p>
                 <v-btn
                   color="primary"
-                  :to="`/folder/${folder.path}`"
+                  :to="`/folder/${encodeURIComponent(folder.path)}`"
                   class="view-folder-btn"
                 >
                   View Folder
@@ -40,14 +40,7 @@
       <div v-if="error" class="error">
         {{ error }}
       </div>
-      <div v-if="selectedFolder">
-        <h2>Selected Folder: {{ selectedFolder.name }}</h2>
-        <div class="image-grid">
-          <div v-for="image in images" :key="image" class="image-card">
-            <v-img :src="image" height="200" cover class="image-thumbnail"></v-img>
-          </div>
-        </div>
-      </div>
+
     </main>
   </v-container>
 </template>
@@ -70,8 +63,6 @@ export default {
     const folders = ref([]);
     const loading = ref(true);
     const error = ref(null);
-    const selectedFolder = ref(null);
-    const images = ref([]);
 
     // Initialize Dropbox and fetch folders
     const initialize = async () => {
@@ -92,8 +83,7 @@ export default {
           id: folder.path,
           name: folder.name,
           path: folder.path,
-          thumbnailUrl: '', // Will be populated when folder is selected
-          items: 0
+          items: folder.items || 0
         }));
 
       } catch (err) {
@@ -103,33 +93,7 @@ export default {
       }
     };
 
-    // Fetch images for a specific folder
-    const fetchFolderImages = async (folder) => {
-      try {
-        selectedFolder.value = folder;
-        loading.value = true;
-        error.value = null;
-
-        const imageUrls = await fetchImagesByFolder(folder.path);
-        images.value = imageUrls;
-        
-        // Update folder with thumbnail and item count
-        const folderIndex = folders.value.findIndex(f => f.id === folder.id);
-        if (folderIndex !== -1) {
-          folders.value[folderIndex] = {
-            ...folders.value[folderIndex],
-            thumbnailUrl: imageUrls[0] || '',
-            items: imageUrls.length
-          };
-        }
-      } catch (err) {
-        error.value = err.message;
-      } finally {
-        loading.value = false;
-      }
-    };
-
-    // Initialize when component is mounted
+    // Initialize when component mounts
     onMounted(() => {
       initialize();
     });
@@ -137,24 +101,23 @@ export default {
     return {
       folders,
       loading,
-      error,
-      selectedFolder,
-      images,
-      fetchFolderImages
+      error
     };
-  },
+  }
 };
 </script>
 
 <style scoped>
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 2rem;
-  padding: 2rem 0;
+  padding: 2rem;
 }
 
 .folder-card {
+  height: 100%;
+  transition: transform 0.2s;
   transition: transform 0.2s ease;
 }
 
