@@ -46,13 +46,19 @@ const year = new Date().getFullYear();
   flex-direction: column;
   min-height: 100vh;
   font-weight: 500; /* Medium weight for Gotham */
+  padding-top: 0; /* Remove any top padding to prevent content from being hidden under the sticky nav */
 }
 
 nav {
-  padding: 15px 30px; /* Adjust vertical padding */
-  display: flex; /* Enable flexbox for alignment */
-  align-items: center; /* Vertically align logo and links */
-  justify-content: space-between; /* Push logo to start and links to end */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: white;
+  padding: 10px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); */
 }
 
 nav .logo {
