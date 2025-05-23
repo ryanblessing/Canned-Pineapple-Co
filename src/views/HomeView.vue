@@ -8,21 +8,32 @@
     <main>
       <div class="project-grid">
         <div v-for="folder in folders" :key="folder.id" class="project-card">
-          <router-link :to="`/folder/${encodeURIComponent(folder.path)}`" class="folder-link">
-            <v-card class="folder-card">
-              <v-img
-                :src="folder.thumbnail"
-                height="350"
-                cover
-                class="folder-thumbnail"
-              >
-                <div class="folder-overlay"></div>
-                <v-card-title class="folder-title">
-                  {{ folder.name }}
-                </v-card-title>
-              </v-img>
-            </v-card>
-          </router-link>
+          <div class="card-container">
+            <router-link :to="`/folder/${encodeURIComponent(folder.path)}`" class="folder-link">
+              <div class="card-front">
+                <v-img
+                  :src="folder.thumbnail"
+                  height="400"
+                  cover
+                  class="folder-thumbnail"
+                >
+                  <div class="folder-overlay"></div>
+                  <v-card-title class="folder-title">
+                    {{ folder.name }}
+                  </v-card-title>
+                </v-img>
+              </div>
+              <div class="card-back">
+                <div class="background-image" :style="{ backgroundImage: `url(${folder.thumbnail})` }"></div>
+                <div class="card-content">
+                  <h3 class="back-title">{{ folder.name }}</h3>
+                  <p class="back-description">
+                    {{ getFolderDescription(folder.name) }}
+                  </p>
+                </div>
+              </div>
+            </router-link>
+          </div>
         </div>
       </div>
       <div v-if="loading" class="loading">
@@ -54,6 +65,14 @@ export default {
     const folders = ref([]);
     const loading = ref(true);
     const error = ref(null);
+
+    const getFolderDescription = (folderName) => {
+      // Add your folder descriptions here
+      const descriptions = {
+        // Example: 'Folder Name': 'Description text here'
+      };
+      return descriptions[folderName] || `View all ${folderName} photos`;
+    };
 
     // Initialize Dropbox and fetch folders
     const initialize = async () => {
@@ -117,7 +136,8 @@ export default {
     return {
       folders,
       loading,
-      error
+      error,
+      getFolderDescription
     };
   }
 };
@@ -131,15 +151,93 @@ export default {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 2rem;
-  padding: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 1rem;
+  padding: 0.5rem;
+  margin: 0 auto;
+  max-width: 95%;
 }
 
 .folder-link {
   text-decoration: none;
   display: block;
   height: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.card-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  margin: 0;
+  padding: 0;
+}
+
+.card-front,
+.card-back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  transition: opacity 0.3s ease;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-back {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15; /* Reduced opacity for the background image */
+  z-index: 0;
+}
+
+.folder-link:hover .card-front {
+  opacity: 0;
+}
+
+.folder-link:hover .card-back {
+  opacity: 1;
+}
+
+.card-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 20px;
+  max-width: 90%;
+}
+
+.back-title {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.back-description {
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .folder-card {
