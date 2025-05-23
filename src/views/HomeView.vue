@@ -13,7 +13,7 @@
               <div class="card-front">
                 <v-img
                   :src="folder.thumbnail"
-                  height="400"
+                  height="600"
                   cover
                   class="folder-thumbnail"
                 >
@@ -151,8 +151,8 @@ export default {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+  /* gap: 1rem; */
   padding: 0.5rem;
   margin: 0 auto;
   max-width: 95%;
@@ -171,7 +171,7 @@ export default {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-height: 600px;
   margin: 0;
   padding: 0;
 }
@@ -336,7 +336,7 @@ header {
 .project-card {
   /* border: 1px solid #ddd;
   border-radius: 8px; */
-  padding: 15px;
+  /* padding: 15px; */
   text-align: center;
 }
 
@@ -349,7 +349,7 @@ header {
   max-width: 100%;
   height: auto;
   border-radius: 4px;
-  margin-bottom: 10px;
+  /* margin-bottom: 10px; */
 }
 
 .project-card p {
