@@ -56,10 +56,12 @@ const folderName = ref(route.params.folderName)
 const images = ref([])
 const breadcrumbs = ref([])
 
-// Extract just the last part of the path for display
+// Extract just the last part of the path for display and capitalize first letter of each word
 const displayFolderName = computed(() => {
   const parts = folderName.value.split('/').filter(part => part.trim() !== '')
-  return parts[parts.length - 1] || 'Gallery'
+  const name = parts[parts.length - 1] || 'Gallery'
+  // Capitalize first letter of each word
+  return name.replace(/\b\w/g, (char) => char.toUpperCase())
 })
 
 // Create rows with alternating patterns: 1 image (odd rows) and 2 images (even rows)
