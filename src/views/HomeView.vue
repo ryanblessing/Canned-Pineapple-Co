@@ -9,12 +9,12 @@
       <div class="project-grid">
         <div v-for="folder in folders" :key="folder.id" class="project-card">
           <v-card class="folder-card">
-            <v-img
-              :src="folder.thumbnailUrl"
-              height="200"
-              cover
-              class="folder-thumbnail"
-            >
+              <v-img
+                :src="folder.thumbnail"
+                height="200"
+                cover
+                class="folder-thumbnail"
+              >
               <v-card-title>
                 {{ folder.name }}
               </v-card-title>
@@ -46,8 +46,8 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
-import { initDropbox, fetchAllFolders, fetchImagesByFolder } from '../api/dropbox';
+import { ref, onMounted } from 'vue'
+import { initDropbox, fetchAllFolders, fetchImagesFromFolder } from '../api/dropbox'
 import { VContainer, VCard, VImg, VCardTitle, VCardText, VBtn } from 'vuetify/components';
 
 export default {
@@ -79,12 +79,31 @@ export default {
 
         // Fetch all folders
         const allFolders = await fetchAllFolders();
-        folders.value = allFolders.map(folder => ({
-          id: folder.path,
-          name: folder.name,
-          path: folder.path,
-          items: folder.items || 0
-        }));
+        folders.value = allFolders.map(async folder => {
+          try {
+            // Fetch thumbnail for folder
+            const thumbnail = await fetchImagesFromFolder(folder.path);
+            return {
+              id: folder.path,
+              name: folder.name,
+              path: folder.path,
+              items: folder.items || 0,
+              thumbnail: thumbnail[0] || '/placeholder-image.jpg'
+            };
+          } catch (err) {
+            console.error(`Error fetching thumbnail for ${folder.name}:`, err);
+            return {
+              id: folder.path,
+              name: folder.name,
+              path: folder.path,
+              items: folder.items || 0,
+              thumbnail: '/placeholder-image.jpg'
+            };
+          }
+        });
+
+        // Wait for all thumbnails to be fetched
+        folders.value = await Promise.all(folders.value);
 
       } catch (err) {
         error.value = err.message;

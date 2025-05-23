@@ -54,7 +54,7 @@ async function fetchAllFolders() {
  * @param {string} folderPath - The path of the folder to fetch images from
  * @returns {Promise<Array>} Array of image URLs
  */
-async function fetchImagesByFolder(folderPath) {
+async function fetchImagesFromFolder(folderPath) {
   try {
     console.log('Fetching images from folder:', folderPath)
     const folderListResponse = await dbx.filesListFolder({ path: folderPath })
@@ -110,5 +110,5 @@ async function fetchImagesByFolder(folderPath) {
 module.exports = {
   initDropbox,
   fetchAllFolders,
-  fetchImagesByFolder
+  fetchImagesFromFolder
 }
