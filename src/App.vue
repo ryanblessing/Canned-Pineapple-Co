@@ -54,7 +54,7 @@ nav {
   top: 0;
   z-index: 1000;
   background-color: white;
-  padding: 10px 30px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -62,7 +62,7 @@ nav {
 }
 
 nav .logo {
-  max-height: 80px; /* Make the logo bigger - adjust as needed */
+  max-height: 120px; /* Make the logo bigger - adjust as needed */
 }
 
 nav ul {
@@ -70,12 +70,13 @@ nav ul {
   padding: 0;
   margin: 0;
   display: flex; /* Arrange links horizontally */
-  gap: 20px; /* Space between links */
+  gap: 15px; 
 }
 
 nav li a {
   font-weight: bold;
-  color: #2c3e50;
+  color: #a0accb;
+  /* color: #2c3e50;  */
   text-decoration: none; /* Remove underlines from links */
 }
 

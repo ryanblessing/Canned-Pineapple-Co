@@ -144,8 +144,11 @@ export default {
 </script>
 
 <style scoped>
+/* v-container {
+  padding: 0;
+} */
 .home-container {
-  max-width: 1600px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
@@ -153,7 +156,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
   /* gap: 1rem; */
-  padding: 0.5rem;
+  /* padding: 0.5rem; */
   margin: 0 auto;
   max-width: 95%;
 }
