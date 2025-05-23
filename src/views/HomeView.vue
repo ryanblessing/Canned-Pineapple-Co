@@ -1,36 +1,28 @@
 <!-- eslint-disable prettier/prettier -->
 <template>
-  <v-container fluid>
-    <header>
-      <h1>Canned Pinapple Company</h1>
-    </header>
+  <v-container fluid class="home-container">
+    <!-- <header class="text-center py-6">
+      <h1 class="text-h4 text-md-h3">Canned Pineapple Company</h1>
+    </header> -->
 
     <main>
       <div class="project-grid">
         <div v-for="folder in folders" :key="folder.id" class="project-card">
-          <v-card class="folder-card">
+          <router-link :to="`/folder/${encodeURIComponent(folder.path)}`" class="folder-link">
+            <v-card class="folder-card">
               <v-img
                 :src="folder.thumbnail"
-                height="200"
+                height="350"
                 cover
                 class="folder-thumbnail"
               >
-              <v-card-title>
-                {{ folder.name }}
-              </v-card-title>
-            </v-img>
-            <v-card-text>
-              <div>
-                <v-btn
-                  color="primary"
-                  :to="`/folder/${encodeURIComponent(folder.path)}`"
-                  class="view-folder-btn"
-                >
-                  View Folder
-                </v-btn>
-              </div>
-            </v-card-text>
-          </v-card>
+                <div class="folder-overlay"></div>
+                <v-card-title class="folder-title">
+                  {{ folder.name }}
+                </v-card-title>
+              </v-img>
+            </v-card>
+          </router-link>
         </div>
       </div>
       <div v-if="loading" class="loading">
@@ -132,46 +124,57 @@ export default {
 </script>
 
 <style scoped>
+.home-container {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 2rem;
-  padding: 2rem;
+  padding: 1rem;
+}
+
+.folder-link {
+  text-decoration: none;
+  display: block;
+  height: 100%;
 }
 
 .folder-card {
   height: 100%;
-  transition: transform 0.2s;
-  transition: transform 0.2s ease;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .folder-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .folder-thumbnail {
   position: relative;
+  height: 350px;
+  width: 100%;
 }
 
-.image-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
+.folder-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.2) 100%);
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
 }
 
-.image-card {
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.image-card:hover {
-  transform: scale(1.05);
-}
-
-.image-thumbnail {
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.folder-card:hover .folder-overlay {
+  opacity: 0.9;
 }
 
 .folder-title {
@@ -179,25 +182,30 @@ export default {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.7);
+  padding: 1.5rem;
   color: white;
-  font-weight: bold;
+  font-weight: 500;
+  font-size: 1.25rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s ease, padding 0.3s ease;
+  z-index: 2;
 }
 
-.folder-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.folder-card:hover .folder-title {
+  transform: translateY(-5px);
+  padding-bottom: 1.8rem;
 }
 
-.folder-items {
-  color: #666;
-  font-size: 0.9rem;
+/* Loading and error states */
+.loading,
+.error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
 }
 
-.view-folder-btn {
-  margin-top: 1rem;
+.error {
+  color: #ff4444;
 }
 
 .loading {
