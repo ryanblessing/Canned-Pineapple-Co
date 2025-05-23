@@ -40,41 +40,107 @@
       <div v-if="error" class="error">
         {{ error }}
       </div>
+      <div v-if="selectedFolder">
+        <h2>Selected Folder: {{ selectedFolder.name }}</h2>
+        <div class="image-grid">
+          <div v-for="image in images" :key="image" class="image-card">
+            <v-img :src="image" height="200" cover class="image-thumbnail"></v-img>
+          </div>
+        </div>
+      </div>
     </main>
   </v-container>
 </template>
 
 <script>
-import { ref } from 'vue';
-// import { fetchImagesByFolder } from '../api/dropbox';
-import {fetchImagesByFolder, listFolders} from '../api/dropbox';
-
+import { ref, onMounted } from 'vue';
+import { initDropbox, fetchAllFolders, fetchImagesByFolder } from '../api/dropbox';
+import { VContainer, VCard, VImg, VCardTitle, VCardText, VBtn } from 'vuetify/components';
 
 export default {
+  components: {
+    VContainer,
+    VCard,
+    VImg,
+    VCardTitle,
+    VCardText,
+    VBtn
+  },
   setup() {
     const folders = ref([]);
     const loading = ref(true);
     const error = ref(null);
+    const selectedFolder = ref(null);
+    const images = ref([]);
 
-    const fetchFoldersData = async () => {
+    // Initialize Dropbox and fetch folders
+    const initialize = async () => {
       try {
-        loading.value = true
-        error.value = null
-        folders.value = await listFolders()
-      } catch (err) {
-        error.value = err.message
-      } finally {
-        loading.value = false
-      }
-    }
+        loading.value = true;
+        error.value = null;
 
-    // Fetch folders when component mounts
-    fetchFoldersData();
+        // Initialize Dropbox connection
+        const isInitialized = await initDropbox();
+        if (!isInitialized) {
+          error.value = 'Failed to initialize Dropbox';
+          return;
+        }
+
+        // Fetch all folders
+        const allFolders = await fetchAllFolders();
+        folders.value = allFolders.map(folder => ({
+          id: folder.path,
+          name: folder.name,
+          path: folder.path,
+          thumbnailUrl: '', // Will be populated when folder is selected
+          items: 0
+        }));
+
+      } catch (err) {
+        error.value = err.message;
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // Fetch images for a specific folder
+    const fetchFolderImages = async (folder) => {
+      try {
+        selectedFolder.value = folder;
+        loading.value = true;
+        error.value = null;
+
+        const imageUrls = await fetchImagesByFolder(folder.path);
+        images.value = imageUrls;
+        
+        // Update folder with thumbnail and item count
+        const folderIndex = folders.value.findIndex(f => f.id === folder.id);
+        if (folderIndex !== -1) {
+          folders.value[folderIndex] = {
+            ...folders.value[folderIndex],
+            thumbnailUrl: imageUrls[0] || '',
+            items: imageUrls.length
+          };
+        }
+      } catch (err) {
+        error.value = err.message;
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // Initialize when component is mounted
+    onMounted(() => {
+      initialize();
+    });
 
     return {
       folders,
       loading,
       error,
+      selectedFolder,
+      images,
+      fetchFolderImages
     };
   },
 };
@@ -88,9 +154,9 @@ export default {
   padding: 2rem 0;
 }
 
-/* .folder-card {
+.folder-card {
   transition: transform 0.2s ease;
-} */
+}
 
 .folder-card:hover {
   transform: translateY(-5px);
@@ -98,6 +164,27 @@ export default {
 
 .folder-thumbnail {
   position: relative;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.image-card {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.image-card:hover {
+  transform: scale(1.05);
+}
+
+.image-thumbnail {
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .folder-title {
