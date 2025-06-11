@@ -7,8 +7,8 @@ const { createDropboxInstance, fetchImagesFromFolder, fetchAllFolders } = requir
 let accessToken = null;
 
 const app = express();
-const PORT = 8080;
-app.use(cors()); // allow requests from frontend
+const PORT = 3001;
+app.use(cors()); 
 
 // Automatically refresh the token
 async function refreshAccessToken() {
@@ -34,6 +34,14 @@ refreshAccessToken();
 
 // Refresh every 2 hours
 setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
+
+// ✅ NEW: Serve access token to frontend
+app.get('/api/dropbox/token', (req, res) => {
+  if (!accessToken) {
+    return res.status(503).json({ error: 'Dropbox token not available yet' });
+  }
+  res.json({ accessToken });
+});
 
 // Route: List all root-level files (simple)
 app.get('/api/dropbox/files', async (req, res) => {
@@ -68,7 +76,7 @@ app.get('/api/dropbox/images', async (req, res) => {
   }
 });
 
-// Optional: List all folders (example route)
+// Route: List all folders
 app.get('/api/dropbox/folders', async (req, res) => {
   try {
     const dbx = createDropboxInstance(accessToken);

@@ -1,8 +1,12 @@
-const { Dropbox } = require('dropbox');
-const fetch = require('isomorphic-fetch');
+import { Dropbox } from 'dropbox';
+import fetch from 'isomorphic-fetch';
 
 function createDropboxInstance(accessToken) {
   return new Dropbox({ accessToken, fetch });
+}
+
+function initDropbox(accessToken) {
+  return createDropboxInstance(accessToken);
 }
 
 async function fetchAllFolders(dbx) {
@@ -10,15 +14,13 @@ async function fetchAllFolders(dbx) {
     const response = await dbx.filesListFolder({ path: '', recursive: true });
     const entries = response.result.entries || [];
 
-    const folders = entries
+    return entries
       .filter(e => e['.tag'] === 'folder')
       .map(folder => ({
         name: folder.name,
         path: folder.path_lower,
         displayPath: folder.path_display
       }));
-
-    return folders;
   } catch (error) {
     console.error('Error fetching folders:', error);
     return [];
@@ -69,7 +71,8 @@ async function fetchImagesFromFolder(dbx, folderPath) {
   }
 }
 
-module.exports = {
+export {
+  initDropbox,              
   createDropboxInstance,
   fetchAllFolders,
   fetchImagesFromFolder
