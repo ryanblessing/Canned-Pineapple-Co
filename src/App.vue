@@ -24,10 +24,23 @@
 </template>
 <!-- eslint-disable prettier/prettier -->
 <script setup>
+import { onMounted, ref } from 'vue';
 import logo from './assets/logo.png';
 
 const year = new Date().getFullYear();
+const dropboxFiles = ref([]);
+
+onMounted(async () => {
+  try {
+    const res = await fetch('http://localhost:8080/api/dropbox/files');
+    dropboxFiles.value = await res.json();
+    console.log('📦 Dropbox Files:', dropboxFiles.value);
+  } catch (err) {
+    console.error('❌ Error fetching Dropbox files:', err);
+  }
+});
 </script>
+
 <!-- eslint-disable prettier/prettier -->
 <style>
 @import url('https://fonts.cdnfonts.com/css/gotham');
