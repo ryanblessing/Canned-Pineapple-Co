@@ -15,7 +15,7 @@ module.exports = defineConfig({
   },
   chainWebpack: config => {
     config.plugin('define').tap(args => {
-      args[0]['process.env'].VITE_DROPBOX_ACCESS_TOKEN = JSON.stringify(process.env.VITE_DROPBOX_ACCESS_TOKEN);
+      args[0]['process.env'].DROPBOX_REFRESH_TOKEN = JSON.stringify(process.env.DROPBOX_REFRESH_TOKEN);
       return args;
     });
   },

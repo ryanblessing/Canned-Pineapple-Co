@@ -64,6 +64,12 @@ export async function fetchImagesFromFolder(folderPath) {
       params: { 
         path: folderPath,
         recursive: false
+      },
+      // Ensure params are properly encoded
+      paramsSerializer: params => {
+        return Object.entries(params)
+          .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+          .join('&');
       }
     });
     
@@ -75,18 +81,32 @@ export async function fetchImagesFromFolder(folderPath) {
       entry => entry['.tag'] === 'file' && isImage(entry.name)
     );
     
-    console.log('Found image files:', imageFiles.length);
+    console.log('Found image files:', imageFiles);
     
     // Get temporary links for each image
     const imageUrls = await Promise.all(
       imageFiles.map(async (file) => {
         try {
+          // Use the path_display instead of path_lower to maintain case sensitivity
+          const pathToUse = file.path_display || file.path_lower;
+          console.log('Requesting link for path:', pathToUse);
+          
           const linkResponse = await axios.get(`${API_BASE_URL}/api/get-link`, {
-            params: { path: file.path_lower }
+            params: { path: pathToUse },
+            paramsSerializer: params => {
+              return Object.entries(params)
+                .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                .join('&');
+            }
           });
+          
+          console.log('Link response for', pathToUse, ':', linkResponse.data);
           return linkResponse.data.link;
         } catch (error) {
-          console.error('Error getting link for file:', file.name, error);
+          console.error('Error getting link for file:', file.name, {
+            error: error.response?.data || error.message,
+            path: file.path_display || file.path_lower
+          });
           return null;
         }
       })

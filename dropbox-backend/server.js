@@ -8,7 +8,8 @@ const {
     getAccessToken, 
     getAuthUrl, 
     getTokensFromCode,
-    isAuthenticated
+    isAuthenticated,
+    refreshAccessToken
 } = require('./dropbox');
 
 const app = express();
@@ -132,6 +133,75 @@ app.get('/api/files', async (req, res) => {
         res.status(500).json({ 
             error: 'Failed to fetch files',
             details: error.message 
+        });
+    }
+});
+
+// Get a temporary link for a file
+app.get('/api/get-link', async (req, res) => {
+    try {
+        let { path } = req.query;
+        if (!path) {
+            return res.status(400).json({ error: 'Path is required' });
+        }
+
+        // Ensure the path starts with a forward slash
+        if (!path.startsWith('/')) {
+            path = '/' + path;
+        }
+
+        // Replace any URL-encoded spaces with actual spaces
+        path = path.replace(/\+/g, ' ');
+        
+        console.log('Requesting link for path:', path);
+        const accessToken = await getAccessToken();
+        
+        // Get the temporary link for the file
+        const response = await axios.post(
+            'https://api.dropboxapi.com/2/files/get_temporary_link',
+            { path },
+            {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        res.json({ 
+            link: response.data.link,
+            metadata: response.data.metadata
+        });
+    } catch (error) {
+        console.error('Error getting file link:', error.response?.data || error.message);
+        if (error.response?.status === 401) {
+            // Try refreshing the token once if we get a 401
+            try {
+                const tokens = await refreshAccessToken();
+                // Retry the request with the new token
+                const retryResponse = await axios.post(
+                    'https://api.dropboxapi.com/2/files/get_temporary_link',
+                    { path: req.query.path },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${tokens.accessToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                return res.json({
+                    link: retryResponse.data.link,
+                    metadata: retryResponse.data.metadata
+                });
+            } catch (retryError) {
+                console.error('Retry failed:', retryError.response?.data || retryError.message);
+                return res.status(401).json({ error: 'Unauthorized after refresh' });
+            }
+        }
+        res.status(500).json({ 
+            error: 'Failed to get file link',
+            details: error.message,
+            path: req.query.path
         });
     }
 });

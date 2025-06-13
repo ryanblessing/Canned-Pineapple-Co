@@ -110,11 +110,12 @@ export default {
         // Process folders to get thumbnails
         folders.value = await Promise.all(
           filteredFolders.map(async (folder) => {
+            console.log('folder: ', folder)
             try {
               // Get first image for thumbnail
-              const thumbnail = await getFirstImageInFolder(folder.path);
+              const thumbnail = await getFirstImageInFolder(folder.id);
               return {
-                id: folder.path,
+                id: folder.id,
                 name: folder.name,
                 path: folder.path,
                 items: folder.size || 0,
