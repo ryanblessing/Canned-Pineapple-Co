@@ -49,7 +49,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchImagesFromFolder } from '../api/dropbox'
 
 const route = useRoute()
 const folderName = ref(route.params.folderName)
@@ -60,41 +59,40 @@ const breadcrumbs = ref([])
 const displayFolderName = computed(() => {
   const parts = folderName.value.split('/').filter(part => part.trim() !== '')
   const name = parts[parts.length - 1] || 'Gallery'
-  // Capitalize first letter of each word
   return name.replace(/\b\w/g, (char) => char.toUpperCase())
 })
 
 // Create rows with alternating patterns: 1 image (odd rows) and 2 images (even rows)
 const masonryRows = computed(() => {
-  const rows = [];
-  let currentIndex = 0;
-  let rowNumber = 1;
-  
+  const rows = []
+  let currentIndex = 0
+  let rowNumber = 1
+
   while (currentIndex < images.value.length) {
-    // Odd rows: 1 image, Even rows: 2 images
-    const itemsInRow = rowNumber % 2 === 1 ? 1 : 2;
-    const rowImages = images.value.slice(currentIndex, currentIndex + itemsInRow);
-    
+    const itemsInRow = rowNumber % 2 === 1 ? 1 : 2
+    const rowImages = images.value.slice(currentIndex, currentIndex + itemsInRow)
+
     if (rowImages.length > 0) {
-      rows.push(rowImages);
+      rows.push(rowImages)
     } else {
-      break;
+      break
     }
-    
-    currentIndex += itemsInRow;
-    rowNumber++;
+
+    currentIndex += itemsInRow
+    rowNumber++
   }
-  
-  return rows;
+
+  return rows
 })
 
 async function fetchFolderImages() {
   try {
-    const imageUrls = await fetchImagesFromFolder(folderName.value);
-    images.value = imageUrls;
-    
-    // Build breadcrumbs
-    const pathParts = folderName.value.split('/').filter(part => part);
+    const res = await fetch(`/api/dropbox/files?folder=${encodeURIComponent(folderName.value)}`)
+    if (!res.ok) throw new Error('Failed to fetch Dropbox images')
+    const imageUrls = await res.json()
+    images.value = imageUrls
+
+    const pathParts = folderName.value.split('/').filter(part => part)
     breadcrumbs.value = [
       { title: 'Home', disabled: false, href: '/' },
       ...pathParts.map((part, index) => ({
@@ -102,9 +100,9 @@ async function fetchFolderImages() {
         disabled: index === pathParts.length - 1,
         href: `/${pathParts.slice(0, index + 1).join('/')}`
       }))
-    ];
+    ]
   } catch (error) {
-    console.error('Error fetching folder images:', error);
+    console.error('Error fetching folder images:', error)
   }
 }
 
@@ -134,12 +132,10 @@ onMounted(fetchFolderImages)
 }
 
 .masonry-item.single {
-  /* Single item takes full width */
   flex: 1 1 100%;
 }
 
 .masonry-item.double {
-  /* Two items share the row equally */
   flex: 1 1 calc(50% - 12px);
 }
 
@@ -167,20 +163,19 @@ onMounted(fetchFolderImages)
   transform: scale(1.03);
 }
 
-/* Responsive adjustments */
 @media (max-width: 960px) {
   .masonry-row {
     flex-direction: column;
     gap: 16px;
   }
-  
+
   .masonry-item,
   .masonry-item.single,
   .masonry-item.double {
     flex: 1 1 100%;
     width: 100%;
   }
-  
+
   .v-img {
     height: 400px !important;
   }

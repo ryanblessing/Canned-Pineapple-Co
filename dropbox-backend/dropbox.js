@@ -1,38 +1,28 @@
 const express = require('express');
-const cors = require('cors');
-const dropboxRoutes = require('./dropbox');
-
-const app = express();
-const PORT = 3000;
-
-app.use(cors());
-app.use('/api/dropbox', dropboxRoutes);
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+const axios = require('axios');
+require('dotenv').config();
 
 
 let accessToken = null;
 
-// async function refreshAccessToken() {
-//   try {
-//     const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
-//       params: {
-//         grant_type: 'refresh_token',
-//         refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
-//         client_id: process.env.DROPBOX_CLIENT_ID,
-//         client_secret: process.env.DROPBOX_CLIENT_SECRET,
-//       },
-//     });
-//     accessToken = response.data.access_token;
-//     console.log('🔁 Dropbox access token refreshed');
-//   } catch (err) {
-//     console.error('❌ Token refresh failed:', err.response?.data || err.message);
-//   }
-// }
-// refreshAccessToken();
-// setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
+async function refreshAccessToken() {
+  try {
+    const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
+      params: {
+        grant_type: 'refresh_token',
+        refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
+        client_id: process.env.DROPBOX_CLIENT_ID,
+        client_secret: process.env.DROPBOX_CLIENT_SECRET,
+      },
+    });
+    accessToken = response.data.access_token;
+    console.log('🔁 Dropbox access token refreshed');
+  } catch (err) {
+    console.error('❌ Token refresh failed:', err.response?.data || err.message);
+  }
+}
+refreshAccessToken();
+setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
 const router = express.Router();
 
@@ -53,7 +43,7 @@ router.get('/folders', async (req, res) => {
 
     const result = await Promise.all(
       folders.map(async folder => {
-        let thumbnail = '/placeholder.jpg'; // fallback
+        let thumbnail = '/placeholder.jpg';
         try {
           const filesResponse = await axios.post(
             'https://api.dropboxapi.com/2/files/list_folder',

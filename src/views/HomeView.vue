@@ -11,79 +11,29 @@
   </v-container>
 </template>
 
-<script>
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
-import { initDropbox, fetchAllFolders, fetchImagesFromFolder } from '@/api/dropbox';
+<script setup>
+import { ref, onMounted } from 'vue'
 
-export default {
-  setup() {
-    const folders = ref([]);
-    const loading = ref(true);
-    const error = ref(null);
+const folders = ref([])
+const loading = ref(true)
+const error = ref(null)
 
-    const initialize = async () => {
-      try {
-        loading.value = true;
-        error.value = null;
+const fetchFolders = async () => {
+  loading.value = true
+  error.value = null
 
-        const tokenResponse = await axios.get('/api/dropbox/token');
-        const accessToken = tokenResponse.data.accessToken;
-
-        const dbx = initDropbox(accessToken);
-        if (!dbx) {
-          error.value = 'Failed to initialize Dropbox';
-          return;
-        }
-
-        const allFolders = await fetchAllFolders(dbx);
-        const filteredFolders = allFolders.filter(folder => {
-          const lowerName = folder.name.toLowerCase();
-          return !['deliverables', 'proofs', 'website photos'].includes(lowerName);
-        });
-
-        folders.value = await Promise.all(
-          filteredFolders.map(async folder => {
-            try {
-              const images = await fetchImagesFromFolder(dbx, folder.path);
-              return {
-                id: folder.path,
-                name: folder.name,
-                path: folder.path,
-                items: folder.items || 0,
-                thumbnail: images?.[0] || '/public/placeholder-image.jpg'
-              };
-            } catch (err) {
-              console.error(`Error fetching thumbnail for ${folder.name}:`, err);
-              return {
-                id: folder.path,
-                name: folder.name,
-                path: folder.path,
-                items: folder.items || 0,
-                thumbnail: '/public/placeholder-image.jpg'
-              };
-            }
-          })
-        );
-
-      } catch (err) {
-        error.value = 'Error initializing Dropbox: ' + err.message;
-      } finally {
-        loading.value = false;
-      }
-    };
-
-    onMounted(() => {
-      initialize();
-    });
-
-    return {
-      folders,
-      loading,
-      error
-    };
+  try {
+    const res = await fetch('/api/dropbox/folders')
+    if (!res.ok) throw new Error('Failed to fetch folders')
+    folders.value = await res.json()
+  } catch (err) {
+    error.value = 'Error loading folders: ' + err.message
+  } finally {
+    loading.value = false
   }
-};
+}
+
+onMounted(fetchFolders)
 </script>
 
 <style scoped>
