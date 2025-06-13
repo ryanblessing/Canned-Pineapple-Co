@@ -48,7 +48,7 @@
 </template>
 
 <script>
-import { ref, onMounted, inject } from 'vue'
+import { ref, onMounted } from 'vue';
 import { 
   VContainer, 
   VImg, 
@@ -57,6 +57,12 @@ import {
   VCardText, 
   VBtn 
 } from 'vuetify/components';
+import { 
+  isAuthenticated, 
+  initDropbox as initDropboxAuth, 
+  fetchAllFolders, 
+  getFirstImageInFolder 
+} from '../api/dropbox';
 
 export default {
   components: {
@@ -68,81 +74,11 @@ export default {
     VBtn
   },
   setup() {
-    const axios = inject('axios')
     const folders = ref([]);
     const loading = ref(true);
     const error = ref(null);
-    
-    // Dropbox API functions
-    const isAuthenticated = async () => {
-      try {
-        const response = await axios.get('/auth/check')
-        return response.data.authenticated
-      } catch (error) {
-        console.error('Auth check failed:', error)
-        return false
-      }
-    }
-    
-    const initDropbox = () => {
-      window.location.href = '/auth/dropbox'
-    }
-    
-    const fetchAllFolders = async () => {
-      try {
-        // First, get the contents of the 'website photos' folder
-        const websitePhotosResponse = await axios.get('/api/folders', {
-          params: { path: '/website photos' }
-        });
-        
-        // Filter out any non-folder items and the 'proofs' folder
-        const filteredFolders = websitePhotosResponse.data.filter(folder => 
-          folder['.tag'] === 'folder' && 
-          folder.name.toLowerCase() !== 'proofs' &&
-          folder.name.toLowerCase() !== 'deliverables'
-        );
-        
-        console.log('Filtered website photo folders:', filteredFolders);
-        folders.value = filteredFolders;
-        return filteredFolders;
-      } catch (error) {
-        console.error('Failed to fetch folders:', error.response?.data || error.message);
-        throw error;
-      }
-    }
-    
-    const getFirstImageInFolder = async (folderPath) => {
-      try {
-        if (!folderPath) {
-          console.error('No folder path provided to getFirstImageInFolder');
-          return '/placeholder-image.jpg';
-        }
-        
-        // Ensure we're using the full path from the folder object
-        const fullPath = folderPath.startsWith('/') ? folderPath : `/${folderPath}`;
-        console.log('Fetching first image for path:', fullPath);
-        
-        const response = await axios.get('/api/first-image', { 
-          params: { path: fullPath }
-        });
-        
-        console.log('First image response for', fullPath, ':', response.data);
-        
-        if (response.data && response.data.url) {
-          return response.data.url;
-        } else {
-          console.log('No image URL in response, using placeholder');
-          return '/placeholder-image.jpg';
-        }
-      } catch (error) {
-        console.error('Failed to get first image:', error.response?.data || error.message);
-        return null;
-      }
-    }
 
     const getFolderDescription = (folderName) => {
-      console.log('folderName: ', folderName)
-      // Add your folder descriptions here
       const descriptions = {
         // Example: 'Folder Name': 'Description text here'
       };
@@ -159,7 +95,7 @@ export default {
         const authenticated = await isAuthenticated();
         if (!authenticated) {
           // If not authenticated, redirect to OAuth flow
-          initDropbox();
+          initDropboxAuth();
           return;
         }
 
@@ -198,7 +134,8 @@ export default {
         );
 
       } catch (err) {
-        error.value = err.message;
+        console.error('Error initializing:', err);
+        error.value = err.message || 'Failed to load folders';
       } finally {
         loading.value = false;
       }
@@ -213,7 +150,8 @@ export default {
       folders,
       loading,
       error,
-      getFolderDescription
+      getFolderDescription,
+      initDropbox: initDropboxAuth
     };
   }
 };

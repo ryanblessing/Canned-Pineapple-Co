@@ -27,21 +27,20 @@ export function initDropbox() {
  * Fetch all folders from Dropbox root directory
  * @returns {Promise<Array>} Array of folder objects with name and path
  */
-export async function fetchAllFolders() {
+export async function fetchAllFolders(path = '/website photos') {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/files`);
-    const entries = response.data.entries || [];
+    const response = await axios.get(`${API_BASE_URL}/api/folders`, {
+      params: { path }
+    });
     
-    const folders = entries
-      .filter(entry => entry['.tag'] === 'folder')
-      .map(folder => ({
-        name: folder.name,
-        path: folder.path_lower,
-        displayPath: folder.path_display,
-        id: folder.id,
-        size: folder.size,
-        client_modified: folder.client_modified
-      }));
+    const folders = response.data.map(folder => ({
+      name: folder.name,
+      path: folder.path_lower,
+      displayPath: folder.path_display,
+      id: folder.id,
+      size: folder.size,
+      client_modified: folder.client_modified
+    }));
 
     console.log('Found folders:', folders);
     return folders;
@@ -60,9 +59,12 @@ export async function fetchImagesFromFolder(folderPath) {
   try {
     console.log('Fetching images from folder:', folderPath);
     
-    // First, get the list of files in the folder
+    // First, get the list of files in the folder from the backend
     const response = await axios.get(`${API_BASE_URL}/api/files`, {
-      params: { path: folderPath }
+      params: { 
+        path: folderPath,
+        recursive: false
+      }
     });
     
     const entries = response.data.entries || [];
