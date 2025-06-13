@@ -49,7 +49,8 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import { initDropbox, fetchAllFolders, fetchImagesFromFolder } from '../api/dropbox'
+import { useRouter } from 'vue-router'
+import { isAuthenticated, initDropbox, fetchAllFolders, getFirstImageInFolder } from '../api/dropbox'
 import { VContainer, VCard, VImg, VCardTitle, VCardText, VBtn } from 'vuetify/components';
 
 export default {
@@ -74,18 +75,20 @@ export default {
       return descriptions[folderName] || `View all ${folderName} photos`;
     };
 
-    // Initialize Dropbox and fetch folders
+    // Initialize and fetch folders
     const initialize = async () => {
       try {
         loading.value = true;
         error.value = null;
 
-        // Initialize Dropbox connection
-        const isInitialized = await initDropbox();
-        if (!isInitialized) {
-          error.value = 'Failed to initialize Dropbox';
+        // Check if user is authenticated
+        const authenticated = await isAuthenticated();
+        if (!authenticated) {
+          // If not authenticated, redirect to OAuth flow
+          initDropbox();
           return;
         }
+
 
         // Fetch all folders and filter out unwanted ones
         const allFolders = await fetchAllFolders();
@@ -94,32 +97,31 @@ export default {
           return !['deliverables', 'proofs', 'website photos'].includes(lowerName);
         });
         
-        folders.value = filteredFolders.map(async folder => {
-          try {
-            // Fetch thumbnail for folder
-            const thumbnail = await fetchImagesFromFolder(folder.path);
-            console.log('thumbnail', thumbnail)
-            return {
-              id: folder.path,
-              name: folder.name,
-              path: folder.path,
-              items: folder.items || 0,
-              thumbnail: thumbnail && thumbnail.length > 0 ? thumbnail[0] : '/public/placeholder-image.jpg'
-            };
-          } catch (err) {
-            console.error(`Error fetching thumbnail for ${folder.name}:`, err);
-            return {
-              id: folder.path,
-              name: folder.name,
-              path: folder.path,
-              items: folder.items || 0,
-              thumbnail: '/public/placeholder-image.jpg'
-            };
-          }
-        });
-
-        // Wait for all thumbnails to be fetched
-        folders.value = await Promise.all(folders.value);
+        // Process folders to get thumbnails
+        folders.value = await Promise.all(
+          filteredFolders.map(async (folder) => {
+            try {
+              // Get first image for thumbnail
+              const thumbnail = await getFirstImageInFolder(folder.path);
+              return {
+                id: folder.path,
+                name: folder.name,
+                path: folder.path,
+                items: folder.size || 0,
+                thumbnail: thumbnail || '/placeholder-image.jpg'
+              };
+            } catch (err) {
+              console.error(`Error processing folder ${folder.name}:`, err);
+              return {
+                id: folder.path,
+                name: folder.name,
+                path: folder.path,
+                items: 0,
+                thumbnail: '/placeholder-image.jpg'
+              };
+            }
+          })
+        );
 
       } catch (err) {
         error.value = err.message;

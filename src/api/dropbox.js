@@ -1,51 +1,53 @@
-const { Dropbox } = require('dropbox')
-const fetch = require('isomorphic-fetch')
+import axios from 'axios';
 
-const ACCESS_TOKEN = process.env.VITE_DROPBOX_ACCESS_TOKEN;
-const dbx = new Dropbox({ accessToken: ACCESS_TOKEN, fetch })
+const API_BASE_URL = 'http://localhost:3001'; // Backend server URL
 
 /**
- * Initialize Dropbox API connection
- * @returns {Promise<boolean>} True if initialization was successful, false otherwise
+ * Check if user is authenticated with Dropbox
+ * @returns {Promise<boolean>} True if authenticated, false otherwise
  */
-async function initDropbox() {
+export async function isAuthenticated() {
   try {
-    // Test the connection by getting account info
-    const accountInfo = await dbx.usersGetCurrentAccount()
-    console.log('Dropbox API initialized successfully:', accountInfo.name)
-    return true
+    const response = await axios.get(`${API_BASE_URL}/auth/check`);
+    return response.data.authenticated;
   } catch (error) {
-    console.error('Failed to initialize Dropbox:', error)
-    return false
+    console.error('Error checking authentication status:', error);
+    return false;
   }
+}
+
+/**
+ * Initialize Dropbox OAuth flow
+ */
+export function initDropbox() {
+  window.location.href = `${API_BASE_URL}/auth/dropbox`;
 }
 
 /**
  * Fetch all folders from Dropbox root directory
  * @returns {Promise<Array>} Array of folder objects with name and path
  */
-async function fetchAllFolders() {
+export async function fetchAllFolders() {
   try {
-    const response = await dbx.filesListFolder({ path: '', recursive: true })
-    if (!response || !response.result || !response.result.entries) {
-      console.error('No entries returned from Dropbox:', response)
-      return []
-    }
-
-    const entries = response.result.entries
+    const response = await axios.get(`${API_BASE_URL}/api/files`);
+    const entries = response.data.entries || [];
+    
     const folders = entries
-      .filter(e => e['.tag'] === 'folder')
+      .filter(entry => entry['.tag'] === 'folder')
       .map(folder => ({
         name: folder.name,
         path: folder.path_lower,
-        displayPath: folder.path_display
-      }))
+        displayPath: folder.path_display,
+        id: folder.id,
+        size: folder.size,
+        client_modified: folder.client_modified
+      }));
 
-    console.log('Found folders:', folders.length)
-    return folders
+    console.log('Found folders:', folders);
+    return folders;
   } catch (error) {
-    console.error('Error fetching folders:', error)
-    return []
+    console.error('Error fetching folders:', error);
+    return [];
   }
 }
 
@@ -54,64 +56,69 @@ async function fetchAllFolders() {
  * @param {string} folderPath - The path of the folder to fetch images from
  * @returns {Promise<Array>} Array of image URLs
  */
-async function fetchImagesFromFolder(folderPath) {
+export async function fetchImagesFromFolder(folderPath) {
   try {
-    console.log('Fetching images from folder:', folderPath)
-    const folderListResponse = await dbx.filesListFolder({ path: folderPath })
-    let { entries: folderFiles, has_more, cursor } = folderListResponse.result
-
-    if (!folderFiles) {
-      console.error(`No files found in folder at path: ${folderPath}`)
-      return []
-    }
-
-    // Handle pagination
-    while (has_more) {
-      const res = await dbx.filesListFolderContinue({ cursor })
-      folderFiles = [...folderFiles, ...res.entries]
-      has_more = res.has_more
-      cursor = res.cursor
-    }
-
-    const isImage = name => /.(jpe?g|png)$/i.test(name)
-    const imageFiles = folderFiles.filter(e => e['.tag'] === 'file' && isImage(e.name))
-
-    console.log('Found image files:', imageFiles.length)
+    console.log('Fetching images from folder:', folderPath);
     
-    const urls = await Promise.all(
+    // First, get the list of files in the folder
+    const response = await axios.get(`${API_BASE_URL}/api/files`, {
+      params: { path: folderPath }
+    });
+    
+    const entries = response.data.entries || [];
+    
+    // Filter for image files
+    const isImage = name => /\.(jpe?g|png|gif|webp)$/i.test(name);
+    const imageFiles = entries.filter(
+      entry => entry['.tag'] === 'file' && isImage(entry.name)
+    );
+    
+    console.log('Found image files:', imageFiles.length);
+    
+    // Get temporary links for each image
+    const imageUrls = await Promise.all(
       imageFiles.map(async (file) => {
         try {
-          const existingLinksResponse = await dbx.sharingListSharedLinks({ path: file.path_lower, direct_only: true })
-          const existingLinks = existingLinksResponse.result.links
-
-          let url;
-          if (existingLinks.length > 0) {
-            url = existingLinks[0].url;
-          } else {
-            const newLinkResponse = await dbx.sharingCreateSharedLinkWithSettings({ path: file.path_lower });
-            url = newLinkResponse.result.url;
-          }
-          // Convert to direct download link
-          return url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
+          const linkResponse = await axios.get(`${API_BASE_URL}/api/get-link`, {
+            params: { path: file.path_lower }
+          });
+          return linkResponse.data.link;
         } catch (error) {
-          console.error('Error getting or creating link for file:', file.name, error)
-          return null
+          console.error('Error getting link for file:', file.name, error);
+          return null;
         }
       })
-    )
-
-    const validUrls = urls.filter(Boolean)
-    console.log(`Successfully fetched ${validUrls.length} image URLs`)
-    return validUrls
+    );
+    
+    // Filter out any failed requests
+    const validUrls = imageUrls.filter(url => url !== null);
+    console.log(`Successfully fetched ${validUrls.length} image URLs`);
+    return validUrls;
   } catch (error) {
-    console.error('Error fetching images:', error)
-    return []
+    console.error('Error fetching images:', error);
+    return [];
   }
 }
 
-// Export all functions
-module.exports = {
+/**
+ * Get the first image from a folder to use as a thumbnail
+ * @param {string} folderPath - Path to the folder
+ * @returns {Promise<string|null>} URL of the first image in the folder, or null if none found
+ */
+export async function getFirstImageInFolder(folderPath) {
+  try {
+    const images = await fetchImagesFromFolder(folderPath);
+    return images.length > 0 ? images[0] : null;
+  } catch (error) {
+    console.error('Error getting first image:', error);
+    return null;
+  }
+}
+
+export default {
+  isAuthenticated,
   initDropbox,
   fetchAllFolders,
-  fetchImagesFromFolder
-}
+  fetchImagesFromFolder,
+  getFirstImageInFolder
+};
