@@ -10,41 +10,59 @@ const DROPBOX_REDIRECT_URI = process.env.DROPBOX_REDIRECT_URI || 'http://localho
 
 // In-memory token store (in production, use a database)
 const tokenStore = {
-    accessToken: null,
+    accessToken: process.env.DROPBOX_ACCESS_TOKEN || null,
     refreshToken: process.env.DROPBOX_REFRESH_TOKEN || null,
-    expiresAt: null
+    expiresAt: process.env.DROPBOX_ACCESS_TOKEN ? Date.now() + 14400000 : null // 4 hours from now if we have an access token
 };
+
+// Log initial token state
+console.log('Initial token store state:', {
+    hasAccessToken: !!tokenStore.accessToken,
+    hasRefreshToken: !!tokenStore.refreshToken,
+    expiresAt: tokenStore.expiresAt ? new Date(tokenStore.expiresAt).toISOString() : null
+});
 
 /**
  * Get a valid access token, refreshing if necessary
  */
 async function getAccessToken() {
+    console.log('Getting access token...');
+    
     // If we have a valid access token, return it
-    if (tokenStore.accessToken && tokenStore.expiresAt > Date.now()) {
+    if (tokenStore.accessToken && tokenStore.expiresAt && tokenStore.expiresAt > Date.now()) {
+        console.log('Using existing access token');
         return tokenStore.accessToken;
     }
 
     // Otherwise, refresh the token
     if (tokenStore.refreshToken) {
+        console.log('Refreshing access token...');
         try {
             const tokens = await refreshAccessToken();
+            console.log('Successfully refreshed access token');
             return tokens.accessToken;
         } catch (error) {
-            console.error('Failed to refresh access token:', error);
-            throw new Error('Failed to refresh access token');
+            console.error('Failed to refresh access token:', error.response?.data || error.message);
+            // Clear invalid tokens
+            tokenStore.accessToken = null;
+            tokenStore.refreshToken = null;
+            tokenStore.expiresAt = null;
+            throw new Error('Failed to refresh access token. Please re-authenticate.');
         }
     }
 
-    throw new Error('No refresh token available');
+    console.error('No refresh token available');
+    throw new Error('No refresh token available. Please authenticate with Dropbox.');
 }
 
 /**
  * Refresh the access token using the refresh token
  */
 async function refreshAccessToken() {
+    console.log('Refreshing access token...');
     try {
         const response = await axios.post(
-            'https://api.dropboxapi.com/oauth2/token',
+            'https://api.dropbox.com/oauth2/token',
             qs.stringify({
                 grant_type: 'refresh_token',
                 refresh_token: tokenStore.refreshToken,
@@ -54,19 +72,37 @@ async function refreshAccessToken() {
             {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                },
+                timeout: 10000 // 10 second timeout
             }
         );
 
+        console.log('Token refresh response:', {
+            status: response.status,
+            data: {
+                ...response.data,
+                access_token: response.data.access_token ? '***' : 'none',
+                refresh_token: response.data.refresh_token ? '***' : 'none'
+            }
+        });
+
         const { access_token, expires_in, refresh_token } = response.data;
+        
+        if (!access_token) {
+            throw new Error('No access token in response');
+        }
         
         // Update token store
         tokenStore.accessToken = access_token;
         if (refresh_token) {
             tokenStore.refreshToken = refresh_token;
-            // In a real app, you'd want to save this new refresh token to your database
+            console.log('Received new refresh token');
         }
-        tokenStore.expiresAt = Date.now() + (expires_in * 1000);
+        
+        const expiresAt = Date.now() + (expires_in * 1000);
+        tokenStore.expiresAt = expiresAt;
+        
+        console.log('Token refresh successful. Expires at:', new Date(expiresAt).toISOString());
 
         return {
             accessToken: access_token,
@@ -74,7 +110,15 @@ async function refreshAccessToken() {
             expiresIn: expires_in
         };
     } catch (error) {
-        console.error('Error refreshing access token:', error.response?.data || error.message);
+        console.error('Error refreshing access token:', {
+            message: error.message,
+            response: error.response ? {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data
+            } : 'No response',
+            stack: error.stack
+        });
         throw error;
     }
 }

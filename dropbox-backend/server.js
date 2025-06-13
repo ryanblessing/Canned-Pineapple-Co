@@ -37,19 +37,53 @@ app.get('/auth/dropbox', (req, res) => {
 
 app.get('/auth/dropbox/callback', async (req, res) => {
     try {
-        const { code } = req.query;
+        console.log('OAuth callback received with query:', req.query);
+        const { code, error: oauthError, error_description } = req.query;
+        
+        if (oauthError) {
+            console.error('OAuth error:', { oauthError, error_description });
+            return res.status(400).json({ 
+                error: 'OAuth error', 
+                details: oauthError,
+                description: error_description 
+            });
+        }
+
         if (!code) {
+            console.error('No authorization code provided');
             return res.status(400).json({ error: 'Authorization code is required' });
         }
 
+        console.log('Exchanging authorization code for tokens...');
         const tokens = await getTokensFromCode(code);
+        
+        if (!tokens || !tokens.accessToken) {
+            console.error('Failed to get access token from code');
+            return res.status(500).json({ error: 'Failed to obtain access token' });
+        }
+        
+        console.log('Successfully obtained tokens');
         
         // Redirect back to frontend with tokens in query params
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
-        res.redirect(`${frontendUrl}/?access_token=${tokens.accessToken}&refresh_token=${tokens.refreshToken}`);
+        const redirectUrl = new URL(frontendUrl);
+        redirectUrl.searchParams.set('access_token', tokens.accessToken);
+        if (tokens.refreshToken) {
+            redirectUrl.searchParams.set('refresh_token', tokens.refreshToken);
+        }
+        
+        console.log(`Redirecting to frontend: ${redirectUrl.toString()}`);
+        res.redirect(redirectUrl.toString());
     } catch (error) {
-        console.error('Error in OAuth callback:', error);
-        res.status(500).json({ error: 'Failed to authenticate with Dropbox' });
+        console.error('Error in OAuth callback:', {
+            message: error.message,
+            stack: error.stack,
+            response: error.response?.data
+        });
+        res.status(500).json({ 
+            error: 'Failed to authenticate with Dropbox',
+            details: error.message 
+        });
     }
 });
 
@@ -140,8 +174,10 @@ app.get('/api/files', async (req, res) => {
 // Get a temporary link for a file
 app.get('/api/get-link', async (req, res) => {
     try {
+        console.log('Received request for file link:', req.query);
         let { path } = req.query;
         if (!path) {
+            console.error('No path provided in request');
             return res.status(400).json({ error: 'Path is required' });
         }
 
@@ -149,12 +185,20 @@ app.get('/api/get-link', async (req, res) => {
         if (!path.startsWith('/')) {
             path = '/' + path;
         }
+        
+        console.log('Getting access token for file:', path);
+        const accessToken = await getAccessToken().catch(error => {
+            console.error('Failed to get access token:', error);
+            throw new Error('Failed to authenticate with Dropbox');
+        });
+        
+        console.log('Requesting link for path:', path);
 
         // Replace any URL-encoded spaces with actual spaces
         path = path.replace(/\+/g, ' ');
         
         console.log('Requesting link for path:', path);
-        const accessToken = await getAccessToken();
+        // const accessToken = await getAccessToken();
         
         // Get the temporary link for the file
         const response = await axios.post(
