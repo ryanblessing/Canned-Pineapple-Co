@@ -48,10 +48,15 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { isAuthenticated, initDropbox, fetchAllFolders, getFirstImageInFolder } from '../api/dropbox'
-import { VContainer, VCard, VImg, VCardTitle, VCardText, VBtn } from 'vuetify/components';
+import { ref, onMounted, inject } from 'vue'
+import { 
+  VContainer, 
+  VImg, 
+  VCard, 
+  VCardTitle, 
+  VCardText, 
+  VBtn 
+} from 'vuetify/components';
 
 export default {
   components: {
@@ -63,11 +68,64 @@ export default {
     VBtn
   },
   setup() {
+    const axios = inject('axios')
     const folders = ref([]);
     const loading = ref(true);
     const error = ref(null);
+    
+    // Dropbox API functions
+    const isAuthenticated = async () => {
+      try {
+        const response = await axios.get('/auth/check')
+        return response.data.authenticated
+      } catch (error) {
+        console.error('Auth check failed:', error)
+        return false
+      }
+    }
+    
+    const initDropbox = () => {
+      window.location.href = '/auth/dropbox'
+    }
+    
+    const fetchAllFolders = async () => {
+      try {
+        const response = await axios.get('/api/folders')
+        folders.value = response.data.filter(folder => folder.name.toLowerCase() !== 'website photos')
+        console.log('response.data: ', response.data)
+        return response.data
+      } catch (error) {
+        console.error('Failed to fetch folders:', error)
+        throw error
+      }
+    }
+    
+    const getFirstImageInFolder = async (folderPath) => {
+      console.log('folderPath: ', folderPath)
+      try {
+        if (!folderPath) {
+          console.error('No folder path provided to getFirstImageInFolder');
+          return null;
+        }
+        console.log('Fetching first image for path:', folderPath);
+        const response = await axios.get('/api/first-image', { 
+          params: { path: folderPath },
+          paramsSerializer: params => {
+            return Object.entries(params)
+              .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+              .join('&');
+          }
+        });
+        console.log('First image response:', response.data);
+        return response.data.url || null;
+      } catch (error) {
+        console.error('Failed to get first image:', error.response?.data || error.message);
+        return null;
+      }
+    }
 
     const getFolderDescription = (folderName) => {
+      console.log('folderName: ', folderName)
       // Add your folder descriptions here
       const descriptions = {
         // Example: 'Folder Name': 'Description text here'

@@ -16,10 +16,18 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    origin: '*', // Allow all origins in development
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
 app.use(express.json());
+
+// Log all requests
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Routes
 app.get('/auth/dropbox', (req, res) => {
@@ -55,6 +63,44 @@ app.get('/auth/check', async (req, res) => {
     }
 });
 
+// List only folders
+app.get('/api/folders', async (req, res) => {
+    try {
+        const { path = '' } = req.query;
+        const accessToken = await getAccessToken();
+        
+        const response = await axios.post(
+            'https://api.dropboxapi.com/2/files/list_folder',
+            { 
+                path: path,
+                recursive: false,
+                include_media_info: false,
+                include_mounted_folders: true
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        // Filter to only return folders
+        const folders = response.data.entries.filter(entry => entry['.tag'] === 'folder');
+        console.log('folders: ', folders)
+        res.json(folders);
+    } catch (error) {
+        console.error('Error fetching folders:', error.response?.data || error.message);
+        if (error.response?.status === 401) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        res.status(500).json({ 
+            error: 'Failed to fetch folders',
+            details: error.message 
+        });
+    }
+});
+
 // List folder contents
 app.get('/api/files', async (req, res) => {
     try {
@@ -85,6 +131,74 @@ app.get('/api/files', async (req, res) => {
         }
         res.status(500).json({ 
             error: 'Failed to fetch files',
+            details: error.message 
+        });
+    }
+});
+
+// Get the first image in a folder
+app.get('/api/first-image', async (req, res) => {
+    try {
+        console.log('req: ', req)
+        console.log('res: ', res)
+        const { path } = req.query;
+        if (!path) {
+            return res.status(400).json({ error: 'Path is required' });
+        }
+
+        const accessToken = await getAccessToken();
+        
+        // First, list the folder contents
+        const listResponse = await axios.post(
+            'https://api.dropboxapi.com/2/files/list_folder',
+            { 
+                path: path,
+                recursive: false,
+                include_media_info: true
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        // Find the first image file
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const firstImage = listResponse.data.entries.find(entry => 
+            entry['.tag'] === 'file' && 
+            imageExtensions.some(ext => entry.name.toLowerCase().endsWith(ext))
+        );
+
+        if (!firstImage) {
+            return res.json({ url: null, message: 'No images found in folder' });
+        }
+
+        // Get the temporary link for the first image
+        const linkResponse = await axios.post(
+            'https://api.dropboxapi.com/2/files/get_temporary_link',
+            { path: firstImage.path_lower },
+            {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        res.json({ 
+            url: linkResponse.data.link,
+            name: firstImage.name,
+            path: firstImage.path_display
+        });
+    } catch (error) {
+        console.error('Error getting first image:', error.response?.data || error.message);
+        if (error.response?.status === 401) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        res.status(500).json({ 
+            error: 'Failed to get first image',
             details: error.message 
         });
     }
