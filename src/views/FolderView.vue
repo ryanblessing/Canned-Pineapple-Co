@@ -93,15 +93,12 @@ async function fetchFolderImages() {
     const imageUrls = await fetchImagesFromFolder(folderName.value);
     images.value = imageUrls;
     
-    // Build breadcrumbs
+    // Build breadcrumbs - only show Home and current folder
     const pathParts = folderName.value.split('/').filter(part => part);
+    const currentFolder = pathParts[pathParts.length - 1] || 'Gallery';
     breadcrumbs.value = [
       { title: 'Home', disabled: false, href: '/' },
-      ...pathParts.map((part, index) => ({
-        title: part,
-        disabled: index === pathParts.length - 1,
-        href: `/${pathParts.slice(0, index + 1).join('/')}`
-      }))
+      { title: currentFolder, disabled: true, href: '' }
     ];
   } catch (error) {
     console.error('Error fetching folder images:', error);
