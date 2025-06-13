@@ -85,13 +85,11 @@ apiClient.interceptors.response.use(
 // Check if user is authenticated
 export const isAuthenticated = async () => {
     try {
-        console.log('Checking authentication status...');
         const response = await apiClient.get('/auth/check', {
             timeout: 10000,
             validateStatus: (status) => status < 500 // Don't throw for 4xx errors
         });
         
-        console.log('Auth check response:', response.data);
         return response.data.authenticated === true;
     } catch (error) {
         logApiError('isAuthenticated', error);
@@ -101,7 +99,6 @@ export const isAuthenticated = async () => {
 
 // Initialize Dropbox authentication
 export const initDropbox = () => {
-    console.log('Initiating Dropbox OAuth flow...');
     // Store the current URL to redirect back after auth
     sessionStorage.setItem('preAuthPath', window.location.pathname);
     window.location.href = `${API_BASE_URL}/auth/dropbox`;
@@ -120,7 +117,6 @@ export const processOAuthCallback = async () => {
     }
 
     if (accessToken) {
-        console.log('OAuth callback received access token');
         // Clear the URL parameters
         window.history.replaceState({}, document.title, window.location.pathname);
         
@@ -144,7 +140,6 @@ export const processOAuthCallback = async () => {
 // Fetch all folders
 export const fetchAllFolders = async (path = '/website photos') => {
     try {
-        console.log('Fetching all folders...');
         const response = await apiClient.get('/api/folders', {
             params: { path }
         });
@@ -164,9 +159,7 @@ export const fetchAllFolders = async (path = '/website photos') => {
 };
 export async function fetchImagesFromFolder(folderPath) {
   try {
-    console.log('Fetching images from folder:', folderPath);
     
-    // First, get the list of files in the folder from the backend
     const response = await axios.get(`${API_BASE_URL}/api/files`, {
       params: { 
         path: folderPath,
@@ -188,7 +181,6 @@ export async function fetchImagesFromFolder(folderPath) {
       entry => entry['.tag'] === 'file' && isImage(entry.name)
     );
     
-    console.log('Found image files:', imageFiles);
     
     // Get temporary links for each image
     const imageUrls = await Promise.all(
@@ -196,7 +188,6 @@ export async function fetchImagesFromFolder(folderPath) {
         try {
           // Use the path_display instead of path_lower to maintain case sensitivity
           const pathToUse = file.path_display || file.path_lower;
-          console.log('Requesting link for path:', pathToUse);
           
           const linkResponse = await axios.get(`${API_BASE_URL}/api/get-link`, {
             params: { path: pathToUse },
@@ -207,7 +198,6 @@ export async function fetchImagesFromFolder(folderPath) {
             }
           });
           
-          console.log('Link response for', pathToUse, ':', linkResponse.data);
           return linkResponse.data.link;
         } catch (error) {
           console.error('Error getting link for file:', file.name, {
@@ -221,7 +211,6 @@ export async function fetchImagesFromFolder(folderPath) {
     
     // Filter out any failed requests
     const validUrls = imageUrls.filter(url => url !== null);
-    console.log(`Successfully fetched ${validUrls.length} image URLs`);
     return validUrls;
   } catch (error) {
     console.error('Error fetching images:', error);
