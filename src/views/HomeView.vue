@@ -90,34 +90,50 @@ export default {
     
     const fetchAllFolders = async () => {
       try {
-        const response = await axios.get('/api/folders')
-        folders.value = response.data.filter(folder => folder.name.toLowerCase() !== 'website photos')
-        console.log('response.data: ', response.data)
-        return response.data
+        // First, get the contents of the 'website photos' folder
+        const websitePhotosResponse = await axios.get('/api/folders', {
+          params: { path: '/website photos' }
+        });
+        
+        // Filter out any non-folder items and the 'proofs' folder
+        const filteredFolders = websitePhotosResponse.data.filter(folder => 
+          folder['.tag'] === 'folder' && 
+          folder.name.toLowerCase() !== 'proofs' &&
+          folder.name.toLowerCase() !== 'deliverables'
+        );
+        
+        console.log('Filtered website photo folders:', filteredFolders);
+        folders.value = filteredFolders;
+        return filteredFolders;
       } catch (error) {
-        console.error('Failed to fetch folders:', error)
-        throw error
+        console.error('Failed to fetch folders:', error.response?.data || error.message);
+        throw error;
       }
     }
     
     const getFirstImageInFolder = async (folderPath) => {
-      console.log('folderPath: ', folderPath)
       try {
         if (!folderPath) {
           console.error('No folder path provided to getFirstImageInFolder');
-          return null;
+          return '/placeholder-image.jpg';
         }
-        console.log('Fetching first image for path:', folderPath);
+        
+        // Ensure we're using the full path from the folder object
+        const fullPath = folderPath.startsWith('/') ? folderPath : `/${folderPath}`;
+        console.log('Fetching first image for path:', fullPath);
+        
         const response = await axios.get('/api/first-image', { 
-          params: { path: folderPath },
-          paramsSerializer: params => {
-            return Object.entries(params)
-              .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-              .join('&');
-          }
+          params: { path: fullPath }
         });
-        console.log('First image response:', response.data);
-        return response.data.url || null;
+        
+        console.log('First image response for', fullPath, ':', response.data);
+        
+        if (response.data && response.data.url) {
+          return response.data.url;
+        } else {
+          console.log('No image URL in response, using placeholder');
+          return '/placeholder-image.jpg';
+        }
       } catch (error) {
         console.error('Failed to get first image:', error.response?.data || error.message);
         return null;
