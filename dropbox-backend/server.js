@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const dropboxRoutes = require('./dropbox');
+const dropboxRoutes = require('../src/api/dropbox');
 
 const app = express();
 const PORT = 3000;
