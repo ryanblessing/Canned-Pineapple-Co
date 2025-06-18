@@ -1,16 +1,12 @@
 const express = require('express');
 const axios = require('axios');
-const cors = require('cors');
 require('dotenv').config();
 
-const app = express();
-const PORT = 3000;
-
-app.use(cors());
+const router = express.Router();
 
 let accessToken = null;
 
-// 🔁 Refresh Dropbox access token
+// Refresh token
 async function refreshAccessToken() {
   try {
     const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
@@ -27,16 +23,15 @@ async function refreshAccessToken() {
     console.error('❌ Token refresh failed:', err.response?.data || err.message);
   }
 }
-
 refreshAccessToken();
 setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
-// 📁 GET /api/dropbox/folders
-app.get('/api/dropbox/folders', async (req, res) => {
+// Folders endpoint
+router.get('/folders', async (req, res) => {
   try {
     const response = await axios.post(
       'https://api.dropboxapi.com/2/files/list_folder',
-      { path: '/Website Photos' },
+      { path: '' },
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -45,13 +40,11 @@ app.get('/api/dropbox/folders', async (req, res) => {
       }
     );
 
-const folders = response.data.entries.filter(
-  item => item[".tag"] === "folder" && item.name === "Website Photos"
-);
+    const folders = response.data.entries.filter(item => item[".tag"] === "folder");
 
     const result = await Promise.all(
       folders.map(async folder => {
-        let thumbnail = '/placeholder.jpg';
+        let thumbnail = '/placeholder.jpg'; // fallback
         try {
           const filesResponse = await axios.post(
             'https://api.dropboxapi.com/2/files/list_folder',
@@ -97,7 +90,4 @@ const folders = response.data.entries.filter(
   }
 });
 
-// 🚀 Start the server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+module.exports = router;

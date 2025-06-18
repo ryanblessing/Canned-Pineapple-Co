@@ -29,8 +29,9 @@ const router = express.Router();
 router.get('/folders', async (req, res) => {
   try {
     const response = await axios.post(
-      'https://api.dropboxapi.com/2/files/list_folder',
-      { path: '' },
+  'https://api.dropboxapi.com/2/files/list_folder',
+  { path: '/Website Photos' }, 
+
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
