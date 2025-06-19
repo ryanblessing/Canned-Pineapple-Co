@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -33,8 +34,11 @@ setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
 // 📁 GET /api/dropbox/folders
 app.get('/api/dropbox/folders', async (req, res) => {
+  console.log('📩 Request received at /api/dropbox/folders');
+  console.log('🔐 Access token:', accessToken);
+
   try {
-    const response = await axios.post(
+    const topLevelResponse = await axios.post(
       'https://api.dropboxapi.com/2/files/list_folder',
       { path: '/Website Photos' },
       {
@@ -45,12 +49,10 @@ app.get('/api/dropbox/folders', async (req, res) => {
       }
     );
 
-const folders = response.data.entries.filter(
-  item => item[".tag"] === "folder" && item.name === "Website Photos"
-);
+    const subfolders = topLevelResponse.data.entries.filter(item => item[".tag"] === "folder");
 
-    const result = await Promise.all(
-      folders.map(async folder => {
+    const results = await Promise.all(
+      subfolders.map(async folder => {
         let thumbnail = '/placeholder.jpg';
         try {
           const filesResponse = await axios.post(
@@ -63,7 +65,9 @@ const folders = response.data.entries.filter(
               },
             }
           );
+
           const firstImage = filesResponse.data.entries.find(f => f.name.match(/\.(jpe?g|png|gif)$/i));
+
           if (firstImage) {
             const linkResponse = await axios.post(
               'https://api.dropboxapi.com/2/files/get_temporary_link',
@@ -78,7 +82,7 @@ const folders = response.data.entries.filter(
             thumbnail = linkResponse.data.link;
           }
         } catch (err) {
-          console.warn(`📁 Could not get thumbnail for ${folder.name}:`, err.message);
+          console.warn(`⚠️ Could not get link for files in ${folder.name}:`, err.response?.data || err.message);
         }
 
         return {
@@ -90,9 +94,9 @@ const folders = response.data.entries.filter(
       })
     );
 
-    res.json(result);
+    res.json(results);
   } catch (err) {
-    console.error('❌ Failed to fetch folders:', err.response?.data || err.message);
+    console.error('❌ Failed to fetch folders:', err.response?.data || err.message || err);
     res.status(500).json({ error: 'Unable to fetch folders' });
   }
 });
