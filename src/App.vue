@@ -47,10 +47,27 @@ onMounted(async () => {
 
 :root {
   --font-gotham: 'Gotham', sans-serif;
+  --font-gotham-medium: 'Gotham Medium', Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-gotham-medium);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6,
+p, span, div, a, button, input, textarea, select, label {
+  font-family: var(--font-gotham-medium);
 }
 
 #app {
-  font-family: var(--font-gotham);
+  font-family: var(--font-gotham-medium);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
@@ -58,7 +75,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  font-weight: 500; /* Medium weight for Gotham */
+  font-weight: 500;
   padding-top: 0; /* Remove any top padding to prevent content from being hidden under the sticky nav */
 }
 

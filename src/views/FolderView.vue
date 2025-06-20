@@ -1,18 +1,18 @@
 <template>
   <v-container fluid class="folder-view">
-    <v-row>
-      <v-col cols="12">
-        <v-breadcrumbs :items="breadcrumbs">
+    <v-row class="mt-0 pt-2">
+      <v-col cols="12" class="py-0">
+        <v-breadcrumbs :items="breadcrumbs" class="py-0 my-0">
           <template v-slot:divider>
-            <v-icon icon="mdi-chevron-right"></v-icon>
+            <v-icon icon="mdi-chevron-right" size="small" class="mx-1"></v-icon>
           </template>
         </v-breadcrumbs>
       </v-col>
     </v-row>
 
-    <v-row class="mb-6">
-      <v-col cols="12" class="text-center">
-        <h1 class="text-h4 text-md-h3">{{ displayFolderName }}</h1>
+    <v-row class="mt-2 pb-6">
+      <v-col cols="12" class="text-center py-0">
+        <h3 class="text-h4 text-md-h3 mb-2" style="font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
       </v-col>
     </v-row>
 
@@ -45,75 +45,41 @@
       </v-btn>
     </v-alert>
 
-
     <!-- Images Grid -->
-    <div v-else-if="images.length > 0" class="masonry-layout">
-      <div 
-        v-for="(row, rowIndex) in masonryRows" 
-        :key="rowIndex" 
-        class="masonry-row"
-        :class="{ 'single-row': row.length === 1, 'double-row': row.length === 2 }"
-      >
-        <div 
+    <v-container v-if="images.length > 0" class="pa-0">
+      <v-row v-for="(row, rowIndex) in masonryRows" :key="rowIndex" no-gutters>
+        <v-col 
           v-for="(image, imgIndex) in row" 
           :key="`${rowIndex}-${imgIndex}`"
-          class="masonry-item"
+          :cols="row.length === 1 ? '12' : '6'"
+          class="pa-2"
         >
-          <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              class="image-card"
-              elevation="2"
-              v-bind="props"
-              :class="{ 'on-hover': isHovering }"
-            >
+          <v-card
+            class="image-card"
+            elevation="2"
+          >
+            <div class="image-container">
               <v-img 
                 :src="image.url" 
                 :alt="image.name"
-                :height="row.length === 1 ? '600' : '500'" 
-                cover 
+                cover
                 class="image-preview"
               >
                 <template v-slot:placeholder>
-                  <v-row class="fill-height ma-0" align="center" justify="center">
+                  <div class="fill-height d-flex align-center justify-center">
                     <v-progress-circular indeterminate color="grey lighten-5"></v-progress-circular>
-                  </v-row>
-                </template>
-                
-                <!-- Image Overlay on Hover -->
-                <v-fade-transition>
-                  <div
-                    v-if="isHovering"
-                    class="image-overlay d-flex flex-column justify-space-between pa-4"
-                  >
-                    <div class="d-flex justify-end">
-                      <v-btn
-                        icon="mdi-download"
-                        variant="text"
-                        size="small"
-                        color="white"
-                        :href="image.url"
-                        :download="image.name"
-                        target="_blank"
-                        @click.stop
-                      ></v-btn>
-                    </div>
-                    <div class="image-info">
-                      <div class="text-caption">
-                        {{ formatFileSize(image.size) }} • {{ formatDate(image.client_modified) }}
-                      </div>
-                    </div>
                   </div>
-                </v-fade-transition>
+                </template>
               </v-img>
-            </v-card>
-          </v-hover>
-        </div>
-      </div>
-    </div>
+            </div>
+          </v-card>
+        </v-col>
+      </v-row>
+    </v-container>
 
     <!-- Empty State -->
     <v-row v-else class="justify-center">
-      <v-col cols="12" md="8" class="text-center">
+      <v-col v-if="!loading" cols="12" md="8" class="text-center">
         <v-icon size="64" color="grey lighten-1" class="mb-4">mdi-image-off</v-icon>
         <h3 class="text-h6">No images found in this folder</h3>
         <p class="text-body-1 text-medium-emphasis">This folder doesn't contain any images.</p>
@@ -177,15 +143,21 @@ async function fetchFolderImages() {
     const imageData = await res.json()
     images.value = imageData
 
-    // Update breadcrumbs
+    // Update breadcrumbs - Only show Home and current folder, excluding 'Website Photos'
     const pathParts = folderName.value.split('/').filter(part => part)
+    // Get just the current folder name (last part of the path)
+    const currentFolder = pathParts[pathParts.length - 1] || ''
     breadcrumbs.value = [
-      { title: 'Home', disabled: false, href: '/' },
-      ...pathParts.map((part, index) => ({
-        title: part.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
-        disabled: index === pathParts.length - 1,
-        href: `/${pathParts.slice(0, index + 1).join('/')}`
-      }))
+      { 
+        title: 'Home', 
+        disabled: false, 
+        href: '/',
+        to: '/'
+      },
+      { 
+        title: currentFolder.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+        disabled: true
+      }
     ]
   } catch (err) {
     console.error('Error fetching folder images:', err)
@@ -231,105 +203,48 @@ onMounted(fetchFolderImages);
   padding: 24px 16px;
 }
 
-.masonry-layout {
-  width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0 16px;
-}
-
-.masonry-row {
-  display: flex;
-  margin-bottom: 24px;
-  gap: 24px;
-  width: 100%;
-}
-
-.masonry-item {
-  flex: 1;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  border-radius: 12px;
+.image-container {
   position: relative;
+  width: 100%;
+  padding-bottom: 100%; /* This makes the container square */
+  overflow: hidden;
+  background-color: #f5f5f5;
 }
 
-.single-row .masonry-item {
-  flex: 1 1 100%;
-  max-width: 100%;
+.single {
+  padding-bottom: 50%; /* Half height for single image rows */
 }
 
-.double-row .masonry-item {
-  flex: 1 1 calc(50% - 12px);
-  max-width: calc(50% - 12px);
+.double {
+  padding-bottom: 100%; /* Full height for double image rows */
 }
 
 .image-card {
+  width: 100%;
   height: 100%;
+  position: relative;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  position: relative;
   background-color: #f5f5f5;
 }
 
-.image-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+.image-card {
+  /* No hover effects */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .image-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
-  background-color: #f0f0f0;
-}
-
-.v-card:hover .image-preview {
-  transform: scale(1.05);
-}
-
-/* Image overlay styles */
-.image-overlay {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    to bottom, 
-    rgba(0, 0, 0, 0.7) 0%, 
-    rgba(0, 0, 0, 0.5) 30%, 
-    rgba(0, 0, 0, 0.3) 50%,
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  color: white;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 16px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.image-card:hover .image-overlay {
-  opacity: 1;
-}
-
-.image-info {
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 4px;
-  padding: 6px 10px;
-  margin-top: auto;
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 0.85rem;
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* No hover effects or overlays */
 
 /* Responsive adjustments */
 @media (max-width: 1264px) {

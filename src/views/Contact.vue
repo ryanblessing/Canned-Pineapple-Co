@@ -7,15 +7,15 @@
         <div class="contact-details">
           <div class="contact-item">
             <v-icon>mdi-map-marker</v-icon>
-            <p>123 Main Street, Anytown, USA</p>
+            <p>Nashville, Tennessee</p>
           </div>
           <div class="contact-item">
             <v-icon>mdi-phone</v-icon>
-            <p>(555) 123-4567</p>
+            <p>1-800-buy-me-dinner-first-you-caddy-bitch</p>
           </div>
           <div class="contact-item">
             <v-icon>mdi-email</v-icon>
-            <p>info@cannedpineappleco.com</p>
+            <p>cannedpineappleco.com </p>
           </div>
         </div>
       </v-col>
