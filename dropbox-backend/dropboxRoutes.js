@@ -6,7 +6,7 @@ const router = express.Router();
 
 let accessToken = null;
 
-// Refresh token
+// 🔁 Refresh token
 async function refreshAccessToken() {
   try {
     const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
@@ -26,81 +26,16 @@ async function refreshAccessToken() {
 refreshAccessToken();
 setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
-// Folders endpoint
-router.get('/folders', async (req, res) => {
-  try {
-    const response = await axios.post(
-      'https://api.dropboxapi.com/2/files/list_folder',
-      { path: '' },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const folders = response.data.entries.filter(item => item[".tag"] === "folder");
-
-    const result = await Promise.all(
-      folders.map(async folder => {
-        let thumbnail = '/placeholder.jpg'; // fallback
-        try {
-          const filesResponse = await axios.post(
-            'https://api.dropboxapi.com/2/files/list_folder',
-            { path: folder.path_lower },
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          const firstImage = filesResponse.data.entries.find(f => f.name.match(/\.(jpe?g|png|gif)$/i));
-          if (firstImage) {
-            const linkResponse = await axios.post(
-              'https://api.dropboxapi.com/2/files/get_temporary_link',
-              { path: firstImage.path_lower },
-              {
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json',
-                },
-              }
-            );
-            thumbnail = linkResponse.data.link;
-          }
-        } catch (err) {
-          console.warn(`📁 Could not get thumbnail for ${folder.name}:`, err.message);
-        }
-
-        return {
-          id: folder.id,
-          name: folder.name,
-          path: folder.path_display,
-          thumbnail,
-        };
-      })
-    );
-
-    res.json(result);
-  } catch (err) {
-    console.error('❌ Failed to fetch folders:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Unable to fetch folders' });
-  }
-});
-
-// Get files from a specific folder
+// 📁 GET /api/dropbox/files?path=/folder-name
 router.get('/files', async (req, res) => {
   try {
     const { path: folderPath = '' } = req.query;
-    
-    // List files in the specified folder
+
     const response = await axios.post(
       'https://api.dropboxapi.com/2/files/list_folder',
-      { 
+      {
         path: folderPath,
-        recursive: false
+        recursive: false,
       },
       {
         headers: {
@@ -109,14 +44,23 @@ router.get('/files', async (req, res) => {
         },
       }
     );
-    
-    // Filter for image files
+
+    const entries = response.data.entries;
+
+    console.log('📂 Files in folder:', entries.map(e => e.name));
+
+    // Filter image files
     const isImage = name => /\.(jpe?g|png|gif|webp)$/i.test(name);
-    const imageFiles = response.data.entries.filter(
+    const imageFiles = entries.filter(
       entry => entry['.tag'] === 'file' && isImage(entry.name)
     );
-    
-    // Get temporary links for each image
+
+    // Check for _metadata.json
+    const metadataEntry = entries.find(
+      entry => entry['.tag'] === 'file' && entry.name.toLowerCase() === '_metadata.json'
+    );
+
+    // Fetch image links
     const imageUrls = await Promise.all(
       imageFiles.map(async (file) => {
         try {
@@ -130,25 +74,50 @@ router.get('/files', async (req, res) => {
               },
             }
           );
-          
+
           return {
             url: linkResponse.data.link,
             name: file.name,
             path: file.path_display || file.path_lower,
             size: file.size,
-            client_modified: file.client_modified
+            client_modified: file.client_modified,
           };
         } catch (error) {
-          console.error('Error getting link for file:', file.name, error.response?.data || error.message);
+          console.error('⚠️ Error getting link for file:', file.name, error.response?.data || error.message);
           return null;
         }
       })
     );
-    
-    // Filter out any failed requests and return
-    const validImages = imageUrls.filter(img => img !== null);
-    res.json(validImages);
-    
+
+    // ✅ Fetch metadata if it exists
+    let metadata = null;
+    if (metadataEntry) {
+      try {
+        const metadataResponse = await axios.post(
+          'https://content.dropboxapi.com/2/files/download',
+          '', // must be non-null
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Dropbox-API-Arg': JSON.stringify({ path: metadataEntry.path_lower }),
+              'Content-Type': 'text/plain' // ✅ Dropbox-approved
+            },
+            responseType: 'text'
+          }
+        );
+
+        console.log('📥 Raw _metadata.json content:', metadataResponse.data);
+        metadata = JSON.parse(metadataResponse.data);
+      } catch (err) {
+        console.warn('⚠️ Could not fetch or parse _metadata.json:', err.response?.data || err.message);
+      }
+    }
+
+    res.json({
+      images: imageUrls.filter(Boolean),
+      metadata: metadata || null,
+    });
+
   } catch (err) {
     console.error('❌ Failed to fetch files:', err.response?.data || err.message);
     res.status(500).json({ error: 'Unable to fetch files', details: err.message });
