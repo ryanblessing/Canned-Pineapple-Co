@@ -98,7 +98,7 @@ onMounted(fetchFolders)
   height: 100%;
   position: relative;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .card-container {
@@ -119,7 +119,7 @@ onMounted(fetchFolders)
   height: 100%;
   backface-visibility: hidden;
   transition: opacity 0.3s ease;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -177,9 +177,8 @@ onMounted(fetchFolders)
 .folder-card {
   height: 100%;
   transition: all 0.3s ease;
-  /* border-radius: 8px; */
+  border-radius: 0;
   overflow: hidden;
-  /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); */
   position: relative;
 }
 

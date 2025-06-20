@@ -224,7 +224,7 @@ onMounted(fetchFolderImages);
   height: 100%;
   position: relative;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   background-color: #f5f5f5;
@@ -290,11 +290,12 @@ onMounted(fetchFolderImages);
   }
 }
 
-/* Animation for the card hover effect */
+/* Card styles */
 .v-card {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform, box-shadow;
   height: 100%;
+  border-radius: 0;
 }
 
 .v-card:not(.on-hover) {
