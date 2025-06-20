@@ -60,6 +60,8 @@ router.get('/files', async (req, res) => {
       entry => entry['.tag'] === 'file' && entry.name.toLowerCase() === '_metadata.json'
     );
 
+    console.log('metadataEntry', metadataEntry);
+
     // Fetch image links
     const imageUrls = await Promise.all(
       imageFiles.map(async (file) => {
