@@ -9,7 +9,7 @@ module.exports = defineConfig({
         crypto: require.resolve("crypto-browserify"),
         util: require.resolve("util/"),
         stream: require.resolve("stream-browserify"),
-        vm: require.resolve("vm-browserify") // 👈 add this line
+        vm: require.resolve("vm-browserify")
       },
     },
   },
@@ -31,6 +31,12 @@ module.exports = defineConfig({
         errors: true
       },
       progress: true
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000', // ⬅️ this connects Vue → Express
+        changeOrigin: true
+      }
     }
   }
 });

@@ -1,10 +1,17 @@
+// server.js
 const express = require('express');
 const axios = require('axios');
+const cors = require('cors');
 require('dotenv').config();
 
+const app = express();
+const PORT = 3000;
+
+app.use(cors());
 
 let accessToken = null;
 
+// 🔁 Refresh Dropbox access token
 async function refreshAccessToken() {
   try {
     const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
@@ -21,17 +28,19 @@ async function refreshAccessToken() {
     console.error('❌ Token refresh failed:', err.response?.data || err.message);
   }
 }
+
 refreshAccessToken();
 setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
-const router = express.Router();
+// 📁 GET /api/dropbox/folders
+app.get('/api/dropbox/folders', async (req, res) => {
+  console.log('📩 Request received at /api/dropbox/folders');
+  console.log('🔐 Access token:', accessToken);
 
-router.get('/folders', async (req, res) => {
   try {
-    const response = await axios.post(
-  'https://api.dropboxapi.com/2/files/list_folder',
-  { path: '/Website Photos' }, 
-
+    const topLevelResponse = await axios.post(
+      'https://api.dropboxapi.com/2/files/list_folder',
+      { path: '/Website Photos' },
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -40,10 +49,10 @@ router.get('/folders', async (req, res) => {
       }
     );
 
-    const folders = response.data.entries.filter(item => item[".tag"] === "folder");
+    const subfolders = topLevelResponse.data.entries.filter(item => item[".tag"] === "folder");
 
-    const result = await Promise.all(
-      folders.map(async folder => {
+    const results = await Promise.all(
+      subfolders.map(async folder => {
         let thumbnail = '/placeholder.jpg';
         try {
           const filesResponse = await axios.post(
@@ -56,7 +65,9 @@ router.get('/folders', async (req, res) => {
               },
             }
           );
+
           const firstImage = filesResponse.data.entries.find(f => f.name.match(/\.(jpe?g|png|gif)$/i));
+
           if (firstImage) {
             const linkResponse = await axios.post(
               'https://api.dropboxapi.com/2/files/get_temporary_link',
@@ -71,7 +82,7 @@ router.get('/folders', async (req, res) => {
             thumbnail = linkResponse.data.link;
           }
         } catch (err) {
-          console.warn(`📁 Could not get thumbnail for ${folder.name}:`, err.message);
+          console.warn(`⚠️ Could not get link for files in ${folder.name}:`, err.response?.data || err.message);
         }
 
         return {
@@ -83,11 +94,14 @@ router.get('/folders', async (req, res) => {
       })
     );
 
-    res.json(result);
+    res.json(results);
   } catch (err) {
-    console.error('❌ Failed to fetch folders:', err.response?.data || err.message);
+    console.error('❌ Failed to fetch folders:', err.response?.data || err.message || err);
     res.status(500).json({ error: 'Unable to fetch folders' });
   }
 });
 
-module.exports = router;
+// 🚀 Start the server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+});

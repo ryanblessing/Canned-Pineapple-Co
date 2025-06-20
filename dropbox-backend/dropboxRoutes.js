@@ -2,9 +2,11 @@ const express = require('express');
 const axios = require('axios');
 require('dotenv').config();
 
+const router = express.Router();
 
 let accessToken = null;
 
+// Refresh token
 async function refreshAccessToken() {
   try {
     const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
@@ -24,14 +26,12 @@ async function refreshAccessToken() {
 refreshAccessToken();
 setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
-const router = express.Router();
-
+// Folders endpoint
 router.get('/folders', async (req, res) => {
   try {
     const response = await axios.post(
-  'https://api.dropboxapi.com/2/files/list_folder',
-  { path: '/Website Photos' }, 
-
+      'https://api.dropboxapi.com/2/files/list_folder',
+      { path: '' },
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -44,7 +44,7 @@ router.get('/folders', async (req, res) => {
 
     const result = await Promise.all(
       folders.map(async folder => {
-        let thumbnail = '/placeholder.jpg';
+        let thumbnail = '/placeholder.jpg'; // fallback
         try {
           const filesResponse = await axios.post(
             'https://api.dropboxapi.com/2/files/list_folder',
