@@ -12,10 +12,10 @@
 
     <v-row class="mt-2 pb-2">
       <v-col cols="12" class="text-center py-0">
-        <h3 class="text-h4 text-md-h3 mb-2 title-underline" style="font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
-        <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
-          {{ folderMetadata.description }}
-        </p>
+        <h3 class="text-h4 text-md-h3 mb-2 title-underline" style="color: #42b983 ; font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
+          <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
+              {{ folderMetadata.description }}
+          </p>
       </v-col>
     </v-row>
 
@@ -239,12 +239,13 @@ onMounted(fetchFolderImages);
   padding: 0 1rem 2rem;
   white-space: pre-line;
 } */
+ 
 .folder-description {
   max-width: 1200px;
   margin: 0 auto;
-  color: #666;
+  color: #8a8a8a;
   font-size: .9rem;
-  line-height: 1.6;
+  line-height: 1.5;
   padding: 0 1rem 2rem;
   white-space: pre-line;
 }
@@ -262,8 +263,9 @@ onMounted(fetchFolderImages);
   right: -60px;
   bottom: 0;
   height: 0.5px;
-  background-color: #7b7a7a;
+  background-color: #42b983;
 }
+/* background-color: #7b7a7a */
 
 .folder-view {
   max-width: 1800px;
@@ -298,10 +300,6 @@ onMounted(fetchFolderImages);
   background-color: #f5f5f5;
 }
 
-.image-card {
-  /* No hover effects */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
 
 .image-preview {
   position: absolute;
