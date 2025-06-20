@@ -12,14 +12,11 @@
 
     <v-row class="mt-2 pb-2">
       <v-col cols="12" class="text-center py-0">
-        <h3 class="text-h4 text-md-h3 mb-2" style="font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
+        <h3 class="text-h4 text-md-h3 mb-2 title-underline" style="font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
         <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
           {{ folderMetadata.description }}
         </p>
       </v-col>
-      <!-- <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
-          {{ folderMetadata.description }}
-        </p> -->
     </v-row>
 
     <!-- Loading State -->
@@ -252,10 +249,26 @@ onMounted(fetchFolderImages);
   white-space: pre-line;
 }
 
+.title-underline {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 12px;
+}
+
+.title-underline::after {
+  content: '';
+  position: absolute;
+  left: -60px;
+  right: -60px;
+  bottom: 0;
+  height: 0.5px;
+  background-color: #7b7a7a;
+}
+
 .folder-view {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 0 16px;
 }
 
 .image-container {
