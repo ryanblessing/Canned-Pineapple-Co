@@ -1,23 +1,27 @@
 <template>
   <v-container fluid class="home-container">
     <main>
-      <div class="project-grid">
+      <div v-if="!loading && !error" class="project-grid">
         <div v-for="folder in folders" :key="folder.id" class="project-card">
           <div class="card-container">
-            <router-link :to="`/folder/${encodeURIComponent(folder.path)}`" class="folder-link">
+            <router-link 
+              v-if="folder.path" 
+              :to="`/folder/${encodeURIComponent(folder.path)}`" 
+              class="folder-link"
+            >
               <!-- Front of card (always visible) -->
               <div class="card-front">
                 <v-img
-                  :src="folder.thumbnail"
+                  :src="folder.thumbnail || '/placeholder.jpg'"
                   height="600"
                   cover
                   class="folder-thumbnail"
                 >
                   <div class="folder-overlay"></div>
                   <div class="card-front-content">
-                    <h3 class="folder-title">{{ folder.name }}</h3>
+                    <h3 class="folder-title">{{ folder.metadata?.title || folder.name }}</h3>
                     <p class="folder-location">
-                      {{ getFolderDescription(folder.name).location }}
+                      {{ folder.metadata?.location || 'Location not specified' }}
                     </p>
                   </div>
                 </v-img>
@@ -25,13 +29,20 @@
               
               <!-- Back of card (visible on hover) -->
               <div class="card-back">
-                <div class="background-image" :style="{ backgroundImage: `url(${folder.thumbnail})` }"></div>
+                <div 
+                  v-if="folder.thumbnail"
+                  class="background-image" 
+                  :style="{ backgroundImage: `url(${folder.thumbnail})` }"
+                ></div>
                 <div class="card-content">
-                  <p class="back-description" v-if="getFolderDescription(folder.name).description">
-                    {{ getFolderDescription(folder.name).description }}
+                  <p 
+                    v-if="folder.metadata?.description" 
+                    class="back-description"
+                  >
+                    {{ folder.metadata.description }}
                   </p>
                   <p class="view-all">
-                    View all {{ folder.name }} photos
+                    View all {{ folder.metadata?.title || folder.name }} photos
                   </p>
                 </div>
               </div>
@@ -39,66 +50,82 @@
           </div>
         </div>
       </div>
-      <div v-if="loading" class="loading">
-        Loading folders...
+      
+      <div v-else-if="loading" class="loading">
+        <v-progress-circular indeterminate color="primary"></v-progress-circular>
+        <p>Loading projects...</p>
       </div>
-      <div v-if="error" class="error">
-        {{ error }}
+      
+      <div v-else-if="error" class="error">
+        <v-alert type="error" class="ma-4">
+          {{ error }}
+          <v-btn @click="retryFetch" class="mt-2" color="error" outlined>Retry</v-btn>
+        </v-alert>
       </div>
-
+      
+      <div v-else class="no-projects">
+        <p>No projects found.</p>
+      </div>
     </main>
   </v-container>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue';
 
-const folders = ref([])
-const loading = ref(true)
-const error = ref(null)
-
-const getFolderDescription = (folderName) => {
-      // This would typically come from an API or data store
-      const folderMetadata = {
-        // Example format:
-        // 'folder-name': {
-        //   title: 'Display Title',
-        //   location: 'Location Name',
-        //   description: 'Detailed description text here'
-        // },
-        'example-folder': {
-          title: 'Example Project',
-          location: 'Nashville, TN',
-          description: 'This is an example project description.'
-        }
-      };
-      
-      // Return the metadata if it exists, or default values
-      return folderMetadata[folderName.toLowerCase()] || {
-        title: folderName,
-        location: 'Ethan fix it you bitch',
-        description: `${folderName} is a project of ours and this is a example description area`
-      };
-    };
+const folders = ref([]);
+const loading = ref(true);
+const error = ref(null);
 
 const fetchFolders = async () => {
-  loading.value = true
-  error.value = null
+  loading.value = true;
+  error.value = null;
 
   try {
-    const res = await fetch('/api/dropbox/folders')
-    console.log('res', res)
-    if (!res.ok) throw new Error('Failed to fetch folders')
-    folders.value = await res.json()
-  console.log('folders', folders.value)
+    const response = await fetch('/api/dropbox/website-photos');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Ensure we have valid data
+    if (!Array.isArray(data)) {
+      throw new Error('Invalid data format received from server');
+    }
+    
+    // Process the data to ensure it has the expected structure
+    folders.value = data.map(folder => ({
+      ...folder,
+      // Ensure metadata has all required fields
+      metadata: {
+        title: folder.metadata?.title || folder.name,
+        location: folder.metadata?.location || 'Location not specified',
+        description: folder.metadata?.description || `View all ${folder.name} photos`,
+        category: folder.metadata?.category || '',
+        tags: Array.isArray(folder.metadata?.tags) ? folder.metadata.tags : []
+      }
+    }));
+    
+    console.log('Fetched folders:', folders.value);
   } catch (err) {
-    error.value = 'Error loading folders: ' + err.message
+    console.error('Error fetching folders:', err);
+    error.value = 'Failed to load projects. ' + (err.message || 'Please try again later.');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
-onMounted(fetchFolders)
+// Fetch data when component mounts
+onMounted(() => {
+  fetchFolders();  
+});
+
+// Expose fetchFolders for retry button
+const retryFetch = () => {
+  fetchFolders();
+};
 </script>
 
 <style scoped>

@@ -61,13 +61,20 @@
             <div class="image-container">
               <v-img 
                 :src="image.url" 
-                :alt="image.name"
+                :alt="image.name || 'Gallery image'"
+                :lazy-src="image.thumbnail || image.url"
                 cover
                 class="image-preview"
+                aspect-ratio="1"
               >
                 <template v-slot:placeholder>
                   <div class="fill-height d-flex align-center justify-center">
-                    <v-progress-circular indeterminate color="grey lighten-5"></v-progress-circular>
+                    <v-progress-circular 
+                      indeterminate 
+                      color="grey lighten-5"
+                      size="32"
+                      width="2"
+                    ></v-progress-circular>
                   </div>
                 </template>
               </v-img>
@@ -132,21 +139,23 @@ const loading = ref(true)
 const error = ref(null)
 
 async function fetchFolderImages() {
-  loading.value = true
-  error.value = null
+  loading.value = true;
+  error.value = null;
   
   try {
     // Use the path query parameter to specify the folder
-    const res = await fetch(`/api/dropbox/files?path=${encodeURIComponent(folderName.value)}`)
-    if (!res.ok) throw new Error('Failed to fetch Dropbox images')
+    const res = await fetch(`/api/dropbox/files?path=${encodeURIComponent(folderName.value)}`);
+    if (!res.ok) throw new Error('Failed to fetch Dropbox images');
     
-    const imageData = await res.json()
-    images.value = imageData
+    const responseData = await res.json();
+    
+    // Handle the new response format - it now has an 'images' property
+    images.value = Array.isArray(responseData.images) ? responseData.images : [];
 
     // Update breadcrumbs - Only show Home and current folder, excluding 'Website Photos'
-    const pathParts = folderName.value.split('/').filter(part => part)
+    const pathParts = folderName.value.split('/').filter(part => part);
     // Get just the current folder name (last part of the path)
-    const currentFolder = pathParts[pathParts.length - 1] || ''
+    const currentFolder = pathParts[pathParts.length - 1] || '';
     breadcrumbs.value = [
       { 
         title: 'Home', 
@@ -155,15 +164,19 @@ async function fetchFolderImages() {
         to: '/'
       },
       { 
-        title: currentFolder.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+        title: currentFolder
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, (char) => char.toUpperCase()),
         disabled: true
       }
-    ]
+    ];
+    
+    console.log('Fetched images:', images.value);
   } catch (err) {
-    console.error('Error fetching folder images:', err)
-    error.value = 'Failed to load images. Please try again later.'
+    console.error('Error fetching folder images:', err);
+    error.value = 'Failed to load images. ' + (err.message || 'Please try again later.');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 

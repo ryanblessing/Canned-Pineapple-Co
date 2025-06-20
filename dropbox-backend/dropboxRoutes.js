@@ -26,6 +26,146 @@ async function refreshAccessToken() {
 refreshAccessToken();
 setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
 
+// 📁 GET /api/dropbox/website-photos
+router.get('/website-photos', async (req, res) => {
+  try {
+    // 1. First, get the list of folders in the root
+    const rootResponse = await axios.post(
+      'https://api.dropboxapi.com/2/files/list_folder',
+      { path: '' },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    // 2. Find the Website Photos folder
+    const websitePhotosFolder = rootResponse.data.entries.find(
+      entry => entry.name === 'Website Photos' && entry['.tag'] === 'folder'
+    );
+
+    if (!websitePhotosFolder) {
+      return res.status(404).json({ error: 'Website Photos folder not found' });
+    }
+
+    console.log('📂 Found Website Photos folder');
+
+    // 3. Get all folders inside Website Photos
+    const websitePhotosResponse = await axios.post(
+      'https://api.dropboxapi.com/2/files/list_folder',
+      { path: websitePhotosFolder.path_lower },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const projectFolders = websitePhotosResponse.data.entries.filter(
+      entry => entry['.tag'] === 'folder'
+    );
+
+    console.log(`📁 Found ${projectFolders.length} project folders`);
+
+    // 4. Process each project folder to find _metadata.json
+    const projects = await Promise.all(
+      projectFolders.map(async (folder) => {
+        try {
+          // Get contents of the project folder
+          const folderResponse = await axios.post(
+            'https://api.dropboxapi.com/2/files/list_folder',
+            { path: folder.path_lower },
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          // Find _metadata.json in this folder
+          const metadataFile = folderResponse.data.entries.find(
+            entry => entry.name === '_metadata.json' && entry['.tag'] === 'file'
+          );
+
+          let metadata = null;
+          if (metadataFile) {
+            try {
+              const metadataResponse = await axios.post(
+                'https://content.dropboxapi.com/2/files/download',
+                '',
+                {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
+                    'Content-Type': 'text/plain'
+                  },
+                  responseType: 'text'
+                }
+              );
+              metadata = JSON.parse(metadataResponse.data);
+              console.log(`✅ Found metadata for ${folder.name}:`, metadata);
+            } catch (err) {
+              console.warn(`⚠️ Could not parse metadata for ${folder.name}:`, err.message);
+            }
+          } else {
+            console.warn(`ℹ️ No _metadata.json found in ${folder.name}`);
+          }
+
+          // Find the first image for thumbnail
+          const imageFile = folderResponse.data.entries.find(
+            entry => entry['.tag'] === 'file' && /\.(jpe?g|png|gif|webp)$/i.test(entry.name)
+          );
+
+          let thumbnail = null;
+          if (imageFile) {
+            try {
+              const linkResponse = await axios.post(
+                'https://api.dropboxapi.com/2/files/get_temporary_link',
+                { path: imageFile.path_lower },
+                {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+              thumbnail = linkResponse.data.link;
+            } catch (err) {
+              console.warn(`⚠️ Could not get thumbnail for ${folder.name}:`, err.message);
+            }
+          }
+
+          return {
+            id: folder.id,
+            name: folder.name,
+            path: folder.path_display,
+            thumbnail,
+            metadata: metadata 
+          };
+        } catch (err) {
+          console.error(`❌ Error processing folder ${folder.name}:`, err.message);
+          return null;
+        }
+      })
+    );
+
+    // Filter out any failed folders
+    const validProjects = projects.filter(project => project !== null);
+    
+    res.json(validProjects);
+  } catch (err) {
+    console.error('❌ Failed to fetch website photos:', err.response?.data || err.message);
+    res.status(500).json({ 
+      error: 'Unable to fetch website photos', 
+      details: err.message 
+    });
+  }
+});
+
 // 📁 GET /api/dropbox/files?path=/folder-name
 router.get('/files', async (req, res) => {
   try {
@@ -46,7 +186,6 @@ router.get('/files', async (req, res) => {
     );
 
     const entries = response.data.entries;
-
     console.log('📂 Files in folder:', entries.map(e => e.name));
 
     // Filter image files
@@ -54,13 +193,6 @@ router.get('/files', async (req, res) => {
     const imageFiles = entries.filter(
       entry => entry['.tag'] === 'file' && isImage(entry.name)
     );
-
-    // Check for _metadata.json
-    const metadataEntry = entries.find(
-      entry => entry['.tag'] === 'file' && entry.name.toLowerCase() === '_metadata.json'
-    );
-
-    console.log('metadataEntry', metadataEntry);
 
     // Fetch image links
     const imageUrls = await Promise.all(
@@ -91,38 +223,15 @@ router.get('/files', async (req, res) => {
       })
     );
 
-    // ✅ Fetch metadata if it exists
-    let metadata = null;
-    if (metadataEntry) {
-      try {
-        const metadataResponse = await axios.post(
-          'https://content.dropboxapi.com/2/files/download',
-          '', // must be non-null
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Dropbox-API-Arg': JSON.stringify({ path: metadataEntry.path_lower }),
-              'Content-Type': 'text/plain' // ✅ Dropbox-approved
-            },
-            responseType: 'text'
-          }
-        );
-
-        console.log('📥 Raw _metadata.json content:', metadataResponse.data);
-        metadata = JSON.parse(metadataResponse.data);
-      } catch (err) {
-        console.warn('⚠️ Could not fetch or parse _metadata.json:', err.response?.data || err.message);
-      }
-    }
-
     res.json({
-      images: imageUrls.filter(Boolean),
-      metadata: metadata || null,
+      images: imageUrls.filter(Boolean)
     });
-
   } catch (err) {
     console.error('❌ Failed to fetch files:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Unable to fetch files', details: err.message });
+    res.status(500).json({ 
+      error: 'Unable to fetch files', 
+      details: err.message 
+    });
   }
 });
 
