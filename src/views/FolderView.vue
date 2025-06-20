@@ -10,9 +10,12 @@
       </v-col>
     </v-row>
 
-    <v-row class="mt-2 pb-6">
+    <v-row class="mt-2 pb-2">
       <v-col cols="12" class="text-center py-0">
         <h3 class="text-h4 text-md-h3 mb-2" style="font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
+        <p v-if="folderMetadata?.description" class="folder-description text-body-1 px-4">
+          {{ folderMetadata.description }}
+        </p>
       </v-col>
     </v-row>
 
@@ -104,6 +107,7 @@ const route = useRoute()
 const folderName = ref(route.params.folderName)
 const images = ref([])
 const breadcrumbs = ref([])
+const folderMetadata = ref(null)
 
 // Extract just the last part of the path for display and capitalize first letter of each word
 const displayFolderName = computed(() => {
@@ -143,7 +147,23 @@ async function fetchFolderImages() {
   error.value = null;
   
   try {
-    // Use the path query parameter to specify the folder
+    // First, get the folder metadata from the parent directory
+    const pathParts = folderName.value.split('/').filter(part => part);
+    const parentPath = pathParts.slice(0, -1).join('/');
+    const folderNameOnly = pathParts[pathParts.length - 1] || '';
+    
+    // Get the list of folders from the parent directory to find our folder's metadata
+    const foldersRes = await fetch(`/api/dropbox/website-photos`);
+    if (!foldersRes.ok) throw new Error('Failed to fetch folder details');
+    
+    const folders = await foldersRes.json();
+    const currentFolder = folders.find(folder => folder.name === folderNameOnly);
+    
+    if (currentFolder) {
+      folderMetadata.value = currentFolder.metadata || null;
+    }
+    
+    // Now fetch the images for the current folder
     const res = await fetch(`/api/dropbox/files?path=${encodeURIComponent(folderName.value)}`);
     if (!res.ok) throw new Error('Failed to fetch Dropbox images');
     
@@ -152,10 +172,7 @@ async function fetchFolderImages() {
     // Handle the new response format - it now has an 'images' property
     images.value = Array.isArray(responseData.images) ? responseData.images : [];
 
-    // Update breadcrumbs - Only show Home and current folder, excluding 'Website Photos'
-    const pathParts = folderName.value.split('/').filter(part => part);
-    // Get just the current folder name (last part of the path)
-    const currentFolder = pathParts[pathParts.length - 1] || '';
+    // Update breadcrumbs
     breadcrumbs.value = [
       { 
         title: 'Home', 
@@ -164,14 +181,17 @@ async function fetchFolderImages() {
         to: '/'
       },
       { 
-        title: currentFolder
+        title: folderNameOnly
           .replace(/-/g, ' ')
           .replace(/\b\w/g, (char) => char.toUpperCase()),
         disabled: true
       }
     ];
     
-    console.log('Fetched images:', images.value);
+    console.log('Fetched folder data:', { 
+      metadata: folderMetadata.value, 
+      imageCount: images.value.length 
+    });
   } catch (err) {
     console.error('Error fetching folder images:', err);
     error.value = 'Failed to load images. ' + (err.message || 'Please try again later.');
@@ -210,6 +230,16 @@ onMounted(fetchFolderImages);
 </script>
 
 <style scoped>
+.folder-description {
+  max-width: 800px;
+  margin: 0 auto;
+  color: #666;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  padding: 0 1rem 2rem;
+  white-space: pre-line;
+}
+
 .folder-view {
   max-width: 1800px;
   margin: 0 auto;

@@ -38,8 +38,9 @@
                   <p 
                     v-if="folder.metadata?.description" 
                     class="back-description"
+                    
                   >
-                    {{ folder.metadata.description }}
+                    {{ truncateDescription(folder.metadata.description) }}
                   </p>
                   <p class="view-all">
                     View all {{ folder.metadata?.title || folder.name }} photos
@@ -122,6 +123,14 @@ onMounted(() => {
   fetchFolders();  
 });
 
+// Truncate description to 50 characters
+const truncateDescription = (text) => {
+  if (!text) return '';
+  const maxLength = 100;
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
 // Expose fetchFolders for retry button
 const retryFetch = () => {
   fetchFolders();
@@ -178,16 +187,38 @@ const retryFetch = () => {
   justify-content: flex-end;
 }
 
-.card-back {
+.card-front {
   position: relative;
-  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%);
+  width: 100%;
+  height: 100%;
+  transition: all 0.3s ease;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
+  flex-direction: column;
+  justify-content: flex-end;
+  background-color: #f5f5f5;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.card-back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  padding: 40px 20px 60px;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
   box-sizing: border-box;
-  transform: translateY(20px);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  overflow: hidden;
+  border-radius: 4px;
 }
 
 .background-image {
@@ -203,12 +234,15 @@ const retryFetch = () => {
 }
 
 .folder-link:hover .card-front {
-  opacity: 0.2;
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
 }
 
 .folder-link:hover .card-back {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 .card-content {
@@ -332,6 +366,27 @@ const retryFetch = () => {
 .folder-card:hover .folder-title {
   transform: translateY(-5px);
   padding-bottom: 1.8rem;
+}
+
+.card-back .back-description {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: white;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+  opacity: 1;
+  transform: none;
+  flex-grow: 1;
+  padding: 0 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 3em;
+  white-space: normal;
 }
 
 /* Loading and error states */
