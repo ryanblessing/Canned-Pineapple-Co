@@ -105,7 +105,8 @@ nav ul {
 
 nav li a {
   font-weight: bold;
-  color: #a0accb;
+  color: #72a2e4;
+  /* color: #a0accb; */
   /* color: #2c3e50;  */
   text-decoration: none; /* Remove underlines from links */
 }

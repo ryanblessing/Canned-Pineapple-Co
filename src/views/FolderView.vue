@@ -2,7 +2,7 @@
   <v-container fluid class="folder-view">
     <v-row class="mt-0 pt-2">
       <v-col cols="12" class="py-0">
-        <v-breadcrumbs :items="breadcrumbs" class="py-0 my-0">
+        <v-breadcrumbs :items="breadcrumbs" class="py-0 my-0" style="font-family: var(--font-gotham); color: #72a2e4;">
           <template v-slot:divider>
             <v-icon icon="mdi-chevron-right" size="small" class="mx-1"></v-icon>
           </template>
@@ -13,10 +13,13 @@
     <v-row class="mt-2 pb-2">
       <v-col cols="12" class="text-center py-0">
         <h3 class="text-h4 text-md-h3 mb-2" style="font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
-        <p v-if="folderMetadata?.description" class="folder-description text-body-1 px-4">
+        <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
           {{ folderMetadata.description }}
         </p>
       </v-col>
+      <!-- <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
+          {{ folderMetadata.description }}
+        </p> -->
     </v-row>
 
     <!-- Loading State -->
@@ -175,7 +178,7 @@ async function fetchFolderImages() {
     // Update breadcrumbs
     breadcrumbs.value = [
       { 
-        title: 'Home', 
+        title: 'Murals', 
         disabled: false, 
         href: '/',
         to: '/'
@@ -230,11 +233,20 @@ onMounted(fetchFolderImages);
 </script>
 
 <style scoped>
-.folder-description {
+/* .folder-description {
   max-width: 800px;
   margin: 0 auto;
   color: #666;
   font-size: 1.1rem;
+  line-height: 1.6;
+  padding: 0 1rem 2rem;
+  white-space: pre-line;
+} */
+.folder-description {
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #666;
+  font-size: .9rem;
   line-height: 1.6;
   padding: 0 1rem 2rem;
   white-space: pre-line;
