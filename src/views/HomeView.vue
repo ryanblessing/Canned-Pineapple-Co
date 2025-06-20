@@ -10,25 +10,26 @@
               class="folder-link"
             >
               <!-- Front of card (always visible) -->
-              <div class="card-front">
+              <v-card class="card-front" flat>
                 <v-img
                   :src="folder.thumbnail || '/placeholder.jpg'"
                   height="600"
                   cover
                   class="folder-thumbnail"
                 >
-                  <div class="folder-overlay"></div>
-                  <div class="card-front-content">
-                    <h3 class="folder-title">{{ folder.metadata?.title || folder.name }}</h3>
-                    <p class="folder-location">
-                      {{ folder.metadata?.location || 'Location not specified' }}
-                    </p>
+                  <div class="folder-overlay">
+                    <div class="card-front-content">
+                      <h4 class="folder-title">{{ folder.metadata?.title || folder.name }}</h4>
+                      <p class="folder-location">
+                        {{ folder.metadata?.location || 'Location not specified' }}
+                      </p>
+                    </div>
                   </div>
                 </v-img>
-              </div>
+              </v-card>
               
               <!-- Back of card (visible on hover) -->
-              <div class="card-back">
+              <v-card class="card-back" flat :style="{ height: '100%', width: '100%' }">
                 <div 
                   v-if="folder.thumbnail"
                   class="background-image" 
@@ -46,7 +47,7 @@
                     View all {{ folder.metadata?.title || folder.name }} photos
                   </p>
                 </div>
-              </div>
+              </v-card>
             </router-link>
           </div>
         </div>
@@ -148,7 +149,7 @@ const retryFetch = () => {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* exactly two columns */
+  grid-template-columns: repeat(3, 1fr); /* exactly three columns */
   gap: 2rem;
   padding: 2rem 0;
 }
@@ -156,22 +157,23 @@ const retryFetch = () => {
 .folder-link {
   text-decoration: none;
   display: block;
-  height: 100%;
   position: relative;
   overflow: hidden;
   border-radius: 0;
+  height: 0;
+  padding-bottom: 100%;
 }
 
 .card-container {
   position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 600px;
+  height: 0;
+  padding-bottom: 100%; /* This creates a square aspect ratio (1:1) */
   margin: 0;
-  padding: 0;
+  overflow: hidden;
 }
 
-.card-front,
+/* .card-front,
 .card-back {
   position: absolute;
   top: 0;
@@ -185,10 +187,12 @@ const retryFetch = () => {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-}
+} */
 
 .card-front {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   transition: all 0.3s ease;
@@ -197,7 +201,7 @@ const retryFetch = () => {
   justify-content: flex-end;
   background-color: #f5f5f5;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 0 !important;
 }
 
 .card-back {
@@ -213,12 +217,12 @@ const retryFetch = () => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 20px;
-  box-sizing: border-box;
   background-color: rgba(0, 0, 0, 0.7);
   color: white;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 0 !important;
+  margin: 0;
+  padding: 0;
 }
 
 .background-image {
@@ -243,6 +247,7 @@ const retryFetch = () => {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+  border-radius: 0 !important;
 }
 
 .card-content {
@@ -252,7 +257,7 @@ const retryFetch = () => {
   padding: 40px 20px;
   width: 100%;
   height: 100%;
-  box-sizing: border-box;
+  /* box-sizing: border-box; */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -266,7 +271,7 @@ const retryFetch = () => {
   right: 0;
   padding: 20px;
   color: white;
-  text-align: left;
+  /* text-align: left; */
   z-index: 2;
   background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
 }
@@ -323,11 +328,14 @@ const retryFetch = () => {
 }
 
 .folder-thumbnail {
-  position: relative;
-  height: 350px;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
+  height: 100%;
   transition: transform 0.3s ease;
   will-change: transform;
+  border-radius: 0 !important;
 }
 
 .folder-link:hover .folder-thumbnail {
@@ -340,7 +348,7 @@ const retryFetch = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.2) 100%);
+  /* background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.2) 100%); */
   opacity: 0.8;
   transition: opacity 0.3s ease;
 }
@@ -390,21 +398,11 @@ const retryFetch = () => {
 }
 
 /* Loading and error states */
-.loading,
-.error {
-  text-align: center;
-  padding: 2rem;
-  font-size: 1.1rem;
-}
-
-.error {
-  color: #ff4444;
-}
-
 .loading {
   text-align: center;
   padding: 2rem;
   color: #666;
+  font-size: 1.1rem;
 }
 
 .error {
