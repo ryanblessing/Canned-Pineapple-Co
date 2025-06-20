@@ -1,14 +1,10 @@
 <template>
   <v-container fluid class="home-container">
-    <!-- <header class="text-center py-6">
-      <h1 class="text-h4 text-md-h3">Canned Pineapple Company</h1>
-    </header> -->
-
     <main>
       <div class="project-grid">
         <div v-for="folder in folders" :key="folder.id" class="project-card">
           <div class="card-container">
-            <router-link :to="folder.path" class="folder-link">
+            <router-link :to="`/folder/${encodeURIComponent(folder.path)}`" class="folder-link">
               <div class="card-front">
                 <v-img
                   :src="folder.thumbnail"
@@ -66,8 +62,10 @@ const fetchFolders = async () => {
 
   try {
     const res = await fetch('/api/dropbox/folders')
+    console.log('res', res)
     if (!res.ok) throw new Error('Failed to fetch folders')
     folders.value = await res.json()
+  console.log('folders', folders.value)
   } catch (err) {
     error.value = 'Error loading folders: ' + err.message
   } finally {

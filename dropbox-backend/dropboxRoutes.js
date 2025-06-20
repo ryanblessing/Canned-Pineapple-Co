@@ -90,4 +90,69 @@ router.get('/folders', async (req, res) => {
   }
 });
 
+// Get files from a specific folder
+router.get('/files', async (req, res) => {
+  try {
+    const { path: folderPath = '' } = req.query;
+    
+    // List files in the specified folder
+    const response = await axios.post(
+      'https://api.dropboxapi.com/2/files/list_folder',
+      { 
+        path: folderPath,
+        recursive: false
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    // Filter for image files
+    const isImage = name => /\.(jpe?g|png|gif|webp)$/i.test(name);
+    const imageFiles = response.data.entries.filter(
+      entry => entry['.tag'] === 'file' && isImage(entry.name)
+    );
+    
+    // Get temporary links for each image
+    const imageUrls = await Promise.all(
+      imageFiles.map(async (file) => {
+        try {
+          const linkResponse = await axios.post(
+            'https://api.dropboxapi.com/2/files/get_temporary_link',
+            { path: file.path_display || file.path_lower },
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          
+          return {
+            url: linkResponse.data.link,
+            name: file.name,
+            path: file.path_display || file.path_lower,
+            size: file.size,
+            client_modified: file.client_modified
+          };
+        } catch (error) {
+          console.error('Error getting link for file:', file.name, error.response?.data || error.message);
+          return null;
+        }
+      })
+    );
+    
+    // Filter out any failed requests and return
+    const validImages = imageUrls.filter(img => img !== null);
+    res.json(validImages);
+    
+  } catch (err) {
+    console.error('❌ Failed to fetch files:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Unable to fetch files', details: err.message });
+  }
+});
+
 module.exports = router;
