@@ -170,7 +170,9 @@ async function fetchFolderImages() {
     const responseData = await res.json();
     
     // Handle the new response format - it now has an 'images' property
-    images.value = Array.isArray(responseData.images) ? responseData.images : [];
+    // Skip the first image (index 0) as it's already shown on the home page
+    const allImages = Array.isArray(responseData.images) ? responseData.images : [];
+    images.value = allImages.length > 1 ? allImages.slice(1) : [];
 
     // Update breadcrumbs
     breadcrumbs.value = [
