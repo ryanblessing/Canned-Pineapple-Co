@@ -21,7 +21,7 @@
                     <div class="card-front-content">
                       <h4 class="folder-title">{{ folder.metadata?.title || folder.name }}</h4>
                       <p class="folder-location">
-                        {{ folder.metadata?.location || 'Location not specified' }}
+                        {{ folder.metadata?.category }}
                       </p>
                     </div>
                   </div>
@@ -43,9 +43,9 @@
                   >
                     {{ truncateDescription(folder.metadata.description) }}
                   </p>
-                  <p class="view-all">
+                  <!-- <p class="view-all">
                     View all {{ folder.metadata?.title || folder.name }} photos
-                  </p>
+                  </p> -->
                 </div>
               </v-card>
             </router-link>
@@ -173,22 +173,6 @@ const retryFetch = () => {
   overflow: hidden;
 }
 
-/* .card-front,
-.card-back {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  backface-visibility: hidden;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-} */
-
 .card-front {
   position: absolute;
   top: 0;
@@ -211,8 +195,8 @@ const retryFetch = () => {
   width: 100%;
   height: 100%;
   opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.3s ease;
+  /* transform: translateY(10px);
+  transition: all 0.3s ease; */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -233,21 +217,21 @@ const retryFetch = () => {
   height: 100%;
   background-size: cover;
   background-position: center;
-  opacity: 0.15; /* Reduced opacity for the background image */
+  opacity: 0.5; /* Reduced opacity for the background image */
   z-index: 0;
 }
 
-.folder-link:hover .card-front {
+/* .folder-link:hover .card-front {
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;
-}
+} */
 
 .folder-link:hover .card-back {
   opacity: 1;
-  transform: translateY(0);
+  /* transform: translateY(0); */
   pointer-events: auto;
-  border-radius: 0 !important;
+  /* border-radius: 0 !important; */
 }
 
 .card-content {
@@ -272,22 +256,15 @@ const retryFetch = () => {
   padding: 20px;
   color: white;
   /* text-align: left; */
-  z-index: 2;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
-}
-
-.folder-title {
-  font-size: 1.5rem;
-  margin: 0 0 5px 0;
-  color: white;
-  font-weight: 500;
+  /* z-index: 2; */
+  /* background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%); */
 }
 
 .folder-location {
   font-size: 0.9rem;
-  margin: 0;
+  padding-top: 10px;
   color: rgba(255, 255, 255, 0.9);
-  font-style: italic;
+  font-style: var(--font-gotham-medium);
 }
 
 .back-description {
@@ -318,14 +295,14 @@ const retryFetch = () => {
   max-width: 100%;
 }
 
-.folder-link:hover .back-description {
+/* .folder-link:hover .back-description {
   transform: translateY(0);
 }
 
 .folder-link:hover .folder-card {
   transform: translateY(-8px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
+} */
 
 .folder-thumbnail {
   position: absolute;
@@ -353,18 +330,19 @@ const retryFetch = () => {
   transition: opacity 0.3s ease;
 }
 
-.folder-card:hover .folder-overlay {
+/* .folder-card:hover .folder-overlay {
   opacity: 0.9;
-}
+} */
 
 .folder-title {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 1.5rem;
+  padding: 1.8rem;
   color: white;
   font-weight: 500;
+  margin: 0 0 5px 0;
   font-size: 1.25rem;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   transition: transform 0.3s ease, padding 0.3s ease;
