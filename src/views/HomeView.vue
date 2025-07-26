@@ -150,8 +150,8 @@ const retryFetch = () => {
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* exactly three columns */
-  gap: 2rem;
-  padding: 2rem 0;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
 }
 
 .folder-link {
