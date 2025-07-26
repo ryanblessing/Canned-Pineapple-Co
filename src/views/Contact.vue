@@ -2,13 +2,12 @@
 <template>
   <v-container fluid>
     <div class="contact-info">
-      <p  style="font-size: 1.3rem; color: #42b983; font-family: var(--font-gotham);"> For custom murals, signs, goldleaf, or other project inquires</p>
-      <p style="font-size: 1.3rem; color: #42b983; font-family: var(--font-gotham);">please email us at: </p>
+      <p  style="font-size: 1.3rem; color: #42b983; font-family: var(--font-gotham);"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT:</p>
         <div class="email-container">
           <v-icon>mdi-email</v-icon>
           <h3>
-            <a href="mailto:cannedpineappleco.com" style="font-family: var(--font-gotham); color: #72a2e4; font-size: 2rem; text-decoration: none;">
-              cannedpineappleco.com
+            <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" style="font-family: var(--font-gotham); color: #72a2e4; font-size: 2rem; text-decoration: none;">
+              INFO@CANNEDPINEAPPLECO.COM
             </a>
           </h3>
         </div>
@@ -18,12 +17,7 @@
 
 <script>
 export default {
-  name: 'ContactView',
-  data: () => ({
-  }),
-  methods: {
-    
-  },
+  name: 'ContactView'
 };
 </script>
 
