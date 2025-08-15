@@ -55,7 +55,7 @@ onMounted(async () => {
 
 body {
   margin: 0;
-  padding: 0;
+  padding: 0 30px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -82,14 +82,15 @@ p, span, div, a, button, input, textarea, select, label {
   padding-top: 0; /* Remove any top padding to prevent content from being hidden under the sticky nav */
 }
 
-.nav-border {
+/* .nav-border {
   width: 100%;
-  max-width: 1800px;
-  margin: 0 auto;
+  position: sticky;
+  padding: 0;
+  margin: 0;
   height: 3px;
   background-color: #e0e0e0eb;
   align-self: center;
-}
+} */
 
 .header-container {
   position: sticky;
@@ -101,6 +102,8 @@ p, span, div, a, button, input, textarea, select, label {
   justify-content: center;
   min-height: 120px;  /* Increased minimum height */
   box-sizing: border-box;
+  border-bottom: 3px solid #e0e0e0eb;
+  padding-bottom: 20px;
 }
 
 /* .nav-content {
@@ -123,8 +126,8 @@ p, span, div, a, button, input, textarea, select, label {
 .logo {
   max-height: 100px;
   position: absolute;
-  left: 20px;
-  top: 30px;
+  left: 0px;
+  top: 20px;
 }
 
 nav {
