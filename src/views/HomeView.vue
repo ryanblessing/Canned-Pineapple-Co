@@ -27,24 +27,7 @@
                   </div>
                 </v-img>
               </v-card>
-              
-              <!-- Back of card (visible on hover) -->
-              <!-- <v-card class="card-back" flat :style="{ height: '100%', width: '100%' }">
-                <div 
-                  v-if="folder.thumbnail"
-                  class="background-image" 
-                  :style="{ backgroundImage: `url(${folder.thumbnail})` }"
-                ></div>
-                <div class="card-content">
-                  <p 
-                    v-if="folder.metadata?.description" 
-                    class="back-description"
-                    
-                  >
-                    {{ truncateDescription(folder.metadata.description) }}
-                  </p>
-                </div>
-              </v-card> -->
+
             </router-link>
           </div>
         </div>
@@ -253,9 +236,10 @@ const fetchFolders = async () => {
   position: absolute;
   bottom: 0;
   left: 0;
-  right: 0;
+  right: 60%;
   padding: 20px;
-  color: white;
+  font-family: var(--font-gotham-medium);
+  color: #fff;
   /* text-align: left; */
   /* z-index: 2; */
   /* background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%); */
@@ -312,12 +296,12 @@ const fetchFolders = async () => {
   width: 100%;
   height: 100%;
   transition: transform 0.3s ease;
-  will-change: transform;
   border-radius: 0 !important;
 }
 
 .folder-link:hover .folder-thumbnail {
-  transform: scale(1.03);
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
 }
 
 .folder-overlay {

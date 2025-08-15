@@ -57,7 +57,7 @@ import aboutImage from '../assets/about_img.jpg';
 }
 
 .about-image {
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-height: 80vh;
