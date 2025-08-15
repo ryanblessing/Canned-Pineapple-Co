@@ -21,7 +21,7 @@
                     <div class="card-front-content">
                       <h4 class="folder-title">{{ folder.metadata?.title || folder.name }}</h4>
                       <p class="folder-location">
-                        {{ folder.metadata?.category }}
+                        {{ folder.metadata?.category || 'No Category Specified' }}
                       </p>
                     </div>
                   </div>
@@ -29,7 +29,7 @@
               </v-card>
               
               <!-- Back of card (visible on hover) -->
-              <v-card class="card-back" flat :style="{ height: '100%', width: '100%' }">
+              <!-- <v-card class="card-back" flat :style="{ height: '100%', width: '100%' }">
                 <div 
                   v-if="folder.thumbnail"
                   class="background-image" 
@@ -43,11 +43,8 @@
                   >
                     {{ truncateDescription(folder.metadata.description) }}
                   </p>
-                  <!-- <p class="view-all">
-                    View all {{ folder.metadata?.title || folder.name }} photos
-                  </p> -->
                 </div>
-              </v-card>
+              </v-card> -->
             </router-link>
           </div>
         </div>
@@ -73,16 +70,36 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
 
-const folders = ref([]);
-const loading = ref(true);
-const error = ref(null);
+const store = useStore();
 
+// Computed properties
+const folders = computed(() => store.getters.getFolders);
+const loading = computed(() => store.getters.isLoading);
+const error = computed(() => store.getters.getError);
+
+// Fetch data when component mounts
+onMounted(() => {
+  fetchFolders();
+});
+
+// Truncate description to 100 characters
+const truncateDescription = (text) => {
+  if (!text) return '';
+  const maxLength = 100;
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
+// Expose fetchFolders for retry button
+const retryFetch = () => {
+  fetchFolders();
+};
+
+// Fetch folders from the API
 const fetchFolders = async () => {
-  loading.value = true;
-  error.value = null;
-
   try {
     const response = await fetch('/api/dropbox/website-photos');
     
@@ -98,7 +115,7 @@ const fetchFolders = async () => {
     }
     
     // Process the data to ensure it has the expected structure
-    folders.value = data.map(folder => ({
+    const processedFolders = data.map(folder => ({
       ...folder,
       // Ensure metadata has all required fields
       metadata: {
@@ -110,31 +127,15 @@ const fetchFolders = async () => {
       }
     }));
     
-    console.log('Fetched folders:', folders.value);
+    // Update the store with the fetched folders
+    store.commit('SET_FOLDERS', processedFolders);
+    console.log('Fetched folders:', processedFolders);
   } catch (err) {
     console.error('Error fetching folders:', err);
-    error.value = 'Failed to load projects. ' + (err.message || 'Please try again later.');
+    store.commit('SET_ERROR', 'Failed to load projects. ' + (err.message || 'Please try again later.'));
   } finally {
-    loading.value = false;
+    store.commit('SET_LOADING', false);
   }
-};
-
-// Fetch data when component mounts
-onMounted(() => {
-  fetchFolders();  
-});
-
-// Truncate description to 50 characters
-const truncateDescription = (text) => {
-  if (!text) return '';
-  const maxLength = 100;
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-};
-
-// Expose fetchFolders for retry button
-const retryFetch = () => {
-  fetchFolders();
 };
 </script>
 

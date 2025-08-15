@@ -55,7 +55,7 @@
           v-for="(image, imgIndex) in row" 
           :key="`${rowIndex}-${imgIndex}`"
           :cols="row.length === 1 ? '12' : '6'"
-          class="pa-2"
+          class="pa-1"
         >
           <v-card
             class="image-card"
@@ -99,15 +99,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useStore } from 'vuex'
 import { format } from 'date-fns/format'
 
 const route = useRoute()
-const folderName = ref(route.params.folderName)
+const store = useStore()
+const folderName = ref(decodeURIComponent(route.params.folderName))
 const images = ref([])
 const breadcrumbs = ref([])
 const folderMetadata = ref(null)
+const currentFolder = ref(null)
 
 // Extract just the last part of the path for display and capitalize first letter of each word
 const displayFolderName = computed(() => {
@@ -142,39 +145,60 @@ const masonryRows = computed(() => {
 const loading = ref(true)
 const error = ref(null)
 
+// Watch for route changes to update the folder data when navigating between folders
+watch(() => route.params.folderName, (newFolderName) => {
+  if (newFolderName) {
+    folderName.value = decodeURIComponent(newFolderName);
+    fetchFolderImages();
+  }
+});
+
+// Find the current folder from the store
+const findCurrentFolder = () => {
+  const allFolders = store.getters.getFolders;
+  // Try to find by path first
+  let folder = allFolders.find(f => f.path === folderName.value);
+  
+  // If not found by path, try by name (last part of the path)
+  if (!folder) {
+    const folderNameOnly = folderName.value.split('/').pop();
+    folder = allFolders.find(f => f.name === folderNameOnly);
+  }
+  
+  return folder || null;
+};
+
 async function fetchFolderImages() {
   loading.value = true;
   error.value = null;
   
   try {
-    // First, get the folder metadata from the parent directory
-    const pathParts = folderName.value.split('/').filter(part => part);
-    const parentPath = pathParts.slice(0, -1).join('/');
-    const folderNameOnly = pathParts[pathParts.length - 1] || '';
+    // Find the current folder from the store
+    currentFolder.value = findCurrentFolder();
     
-    // Get the list of folders from the parent directory to find our folder's metadata
-    const foldersRes = await fetch(`/api/dropbox/website-photos`);
-    if (!foldersRes.ok) throw new Error('Failed to fetch folder details');
-    
-    const folders = await foldersRes.json();
-    const currentFolder = folders.find(folder => folder.name === folderNameOnly);
-    
-    if (currentFolder) {
-      folderMetadata.value = currentFolder.metadata || null;
+    if (!currentFolder.value) {
+      throw new Error('Folder not found');
     }
     
-    // Now fetch the images for the current folder
+    // Set the folder metadata
+    folderMetadata.value = currentFolder.value.metadata || null;
+    
+    // Fetch the images for the current folder
     const res = await fetch(`/api/dropbox/files?path=${encodeURIComponent(folderName.value)}`);
     if (!res.ok) throw new Error('Failed to fetch Dropbox images');
     
     const responseData = await res.json();
     
-    // Handle the new response format - it now has an 'images' property
-    // Skip the first image (index 0) as it's already shown on the home page
+    // Handle the response - skip the first image as it's the thumbnail
     const allImages = Array.isArray(responseData.images) ? responseData.images : [];
     images.value = allImages.length > 1 ? allImages.slice(1) : [];
 
-    // Update breadcrumbs
+    // Update breadcrumbs using the folder's display name from metadata if available
+    const displayName = folderMetadata.value?.title || 
+                       folderName.value.split('/').pop()
+                         .replace(/-/g, ' ')
+                         .replace(/\b\w/g, (char) => char.toUpperCase());
+    
     breadcrumbs.value = [
       { 
         title: 'Murals', 
@@ -183,14 +207,13 @@ async function fetchFolderImages() {
         to: '/'
       },
       { 
-        title: folderNameOnly
-          .replace(/-/g, ' ')
-          .replace(/\b\w/g, (char) => char.toUpperCase()),
+        title: displayName,
         disabled: true
       }
     ];
     
     console.log('Fetched folder data:', { 
+      folder: currentFolder.value,
       metadata: folderMetadata.value, 
       imageCount: images.value.length 
     });
