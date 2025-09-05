@@ -8,6 +8,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors());
+app.use(express.json()); // Add JSON body parsing middleware
 
 let accessToken = null;
 
@@ -101,7 +102,13 @@ app.get('/api/dropbox/folders', async (req, res) => {
   }
 });
 
+// Import the dropbox routes
+const dropboxRoutes = require('./dropboxRoutes');
+
+// Use the dropbox routes
+app.use('/api/dropbox', dropboxRoutes);
+
 // 🚀 Start the server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

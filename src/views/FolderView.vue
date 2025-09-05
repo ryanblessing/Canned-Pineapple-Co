@@ -1,59 +1,113 @@
 <template>
-  <v-container fluid>
-    <v-row>
-      <v-col cols="12">
-        <v-breadcrumbs :items="breadcrumbs">
+  <v-container fluid class="folder-view">
+    <PageHeader 
+      :folder-name="displayFolderName" 
+      :folder-description="folderMetadata?.description || ''" 
+    />
+    
+    <v-row class="mt-0 pt-2">
+      <v-col cols="12" class="py-0">
+        <v-breadcrumbs :items="breadcrumbs" class="py-0 my-0" style="font-family: var(--font-gotham); color: #72a2e4;">
           <template v-slot:divider>
-            <v-icon icon="mdi-chevron-right"></v-icon>
+            <v-icon icon="mdi-chevron-right" size="small" class="mx-1"></v-icon>
           </template>
         </v-breadcrumbs>
       </v-col>
     </v-row>
-    <v-row class="mb-6">
+
+    <!-- Loading State -->
+    <v-row v-if="loading" class="justify-center">
       <v-col cols="12" class="text-center">
-        <h1 class="text-h4 text-md-h3">{{ displayFolderName }}</h1>
+        <v-progress-circular
+          indeterminate
+          color="primary"
+          size="64"
+        ></v-progress-circular>
+        <p class="mt-4">Loading images...</p>
       </v-col>
     </v-row>
-    <div class="masonry-layout">
-      <div 
-        v-for="(row, rowIndex) in masonryRows" 
-        :key="rowIndex" 
-        class="masonry-row"
-        :class="{ 'single-row': row.length === 1, 'double-row': row.length === 2 }"
+
+    <!-- Error State -->
+    <v-alert
+      v-else-if="error"
+      type="error"
+      class="ma-4"
+    >
+      {{ error }}
+      <v-btn
+        color="white"
+        variant="text"
+        class="ml-4"
+        @click="fetchFolderImages"
       >
-        <div 
+        Retry
+      </v-btn>
+    </v-alert>
+
+    <!-- Images Grid -->
+    <v-container v-if="images.length > 0" class="pa-0">
+      <v-row v-for="(row, rowIndex) in masonryRows" :key="rowIndex" no-gutters>
+        <v-col 
           v-for="(image, imgIndex) in row" 
           :key="`${rowIndex}-${imgIndex}`"
-          class="masonry-item"
+          :cols="row.length === 1 ? '12' : '6'"
+          class="pa-1"
         >
-          <v-card class="image-card">
-            <v-img 
-              :src="image" 
-              :height="row.length === 1 ? '600' : '500'" 
-              cover 
-              class="image-preview"
-            >
-              <template v-slot:placeholder>
-                <v-row class="fill-height ma-0" align="center" justify="center">
-                  <v-progress-circular indeterminate color="grey lighten-5"></v-progress-circular>
-                </v-row>
-              </template>
-            </v-img>
+          <v-card
+            class="image-card"
+            elevation="2"
+          >
+            <div class="image-container">
+              <v-img 
+                :src="image.url" 
+                :alt="image.name || 'Gallery image'"
+                :lazy-src="image.thumbnail || image.url"
+                cover
+                class="image-preview"
+                aspect-ratio="1"
+              >
+                <template v-slot:placeholder>
+                  <div class="fill-height d-flex align-center justify-center">
+                    <v-progress-circular 
+                      indeterminate 
+                      color="grey lighten-5"
+                      size="32"
+                      width="2"
+                    ></v-progress-circular>
+                  </div>
+                </template>
+              </v-img>
+            </div>
           </v-card>
-        </div>
-      </div>
-    </div>
+        </v-col>
+      </v-row>
+    </v-container>
+
+    <!-- Empty State -->
+    <v-row v-else class="justify-center">
+      <v-col v-if="!loading" cols="12" md="8" class="text-center">
+        <v-icon size="64" color="grey lighten-1" class="mb-4">mdi-image-off</v-icon>
+        <h3 class="text-h6">No images found in this folder</h3>
+        <p class="text-body-1 text-medium-emphasis">This folder doesn't contain any images.</p>
+      </v-col>
+    </v-row>
   </v-container>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import PageHeader from '@/components/PageHeader.vue';
+import { format } from 'date-fns/format'
 
 const route = useRoute()
-const folderName = ref(route.params.folderName)
+const store = useStore()
+const folderName = ref(decodeURIComponent(route.params.folderName))
 const images = ref([])
 const breadcrumbs = ref([])
+const folderMetadata = ref(null)
+const currentFolder = ref(null)
 
 // Extract just the last part of the path for display and capitalize first letter of each word
 const displayFolderName = computed(() => {
@@ -85,105 +139,337 @@ const masonryRows = computed(() => {
   return rows
 })
 
-async function fetchFolderImages() {
-  try {
-    const res = await fetch(`/api/dropbox/files?folder=${encodeURIComponent(folderName.value)}`)
-    if (!res.ok) throw new Error('Failed to fetch Dropbox images')
-    const imageUrls = await res.json()
-    images.value = imageUrls
+const loading = ref(true)
+const error = ref(null)
 
-    const pathParts = folderName.value.split('/').filter(part => part)
+// Watch for route changes to update the folder data when navigating between folders
+watch(() => route.params.folderName, (newFolderName) => {
+  if (newFolderName) {
+    folderName.value = decodeURIComponent(newFolderName);
+    fetchFolderImages();
+  }
+});
+
+// Find the current folder from the store
+const findCurrentFolder = () => {
+  const allFolders = store.getters.getFolders;
+  // Try to find by path first
+  let folder = allFolders.find(f => f.path === folderName.value);
+  
+  // If not found by path, try by name (last part of the path)
+  if (!folder) {
+    const folderNameOnly = folderName.value.split('/').pop();
+    folder = allFolders.find(f => f.name === folderNameOnly);
+  }
+  
+  return folder || null;
+};
+
+async function fetchFolderImages() {
+  loading.value = true;
+  error.value = null;
+  
+  try {
+    // Find the current folder from the store
+    currentFolder.value = findCurrentFolder();
+    
+    if (!currentFolder.value) {
+      throw new Error('Folder not found');
+    }
+    
+    // Set the folder metadata
+    folderMetadata.value = currentFolder.value.metadata || null;
+    
+    // Fetch the images for the current folder
+    const res = await fetch(`/api/dropbox/files?path=${encodeURIComponent(folderName.value)}`);
+    if (!res.ok) throw new Error('Failed to fetch Dropbox images');
+    
+    const responseData = await res.json();
+    
+    // Handle the response - skip the first image as it's the thumbnail
+    const allImages = Array.isArray(responseData.images) ? responseData.images : [];
+    images.value = allImages.length > 1 ? allImages.slice(1) : [];
+
+    // Update breadcrumbs using the folder's display name from metadata if available
+    const displayName = folderMetadata.value?.title || 
+                       folderName.value.split('/').pop()
+                         .replace(/-/g, ' ')
+                         .replace(/\b\w/g, (char) => char.toUpperCase());
+    
     breadcrumbs.value = [
-      { title: 'Home', disabled: false, href: '/' },
-      ...pathParts.map((part, index) => ({
-        title: part,
-        disabled: index === pathParts.length - 1,
-        href: `/${pathParts.slice(0, index + 1).join('/')}`
-      }))
-    ]
-  } catch (error) {
-    console.error('Error fetching folder images:', error)
+      { 
+        title: 'Murals', 
+        disabled: false, 
+        href: '/',
+        to: '/'
+      },
+      { 
+        title: displayName,
+        disabled: true
+      }
+    ];
+    
+    console.log('Fetched folder data:', { 
+      folder: currentFolder.value,
+      metadata: folderMetadata.value, 
+      imageCount: images.value.length 
+    });
+  } catch (err) {
+    console.error('Error fetching folder images:', err);
+    error.value = 'Failed to load images. ' + (err.message || 'Please try again later.');
+  } finally {
+    loading.value = false;
   }
 }
 
-onMounted(fetchFolderImages)
+// Format file size to human readable format
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Format date to a readable format
+const formatDate = (dateString) => {
+  if (!dateString) return 'Unknown date';
+  try {
+    const date = new Date(dateString);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return 'Unknown date';
+    }
+    return format(date, 'MMM d, yyyy');
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return 'Unknown date';
+  }
+};
+
+onMounted(fetchFolderImages);
 </script>
 
 <style scoped>
-.masonry-layout {
-  width: 100%;
-  max-width: 1400px;
+/* .folder-description {
+  max-width: 800px;
+  margin: 0 auto;
+  color: #666;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  padding: 0 1rem 2rem;
+  white-space: pre-line;
+} */
+ 
+.folder-description {
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #8a8a8a;
+  font-size: .9rem;
+  line-height: 1.5;
+  padding: 0 1rem 2rem;
+  white-space: pre-line;
+}
+
+.title-underline {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 12px;
+}
+
+.title-underline::after {
+  content: '';
+  position: absolute;
+  left: -60px;
+  right: -60px;
+  bottom: 0;
+  height: 0.5px;
+  background-color: #42b983;
+}
+/* background-color: #7b7a7a */
+
+.folder-view {
+  max-width: 1800px;
   margin: 0 auto;
   padding: 0 16px;
 }
 
-.masonry-row {
-  display: flex;
-  margin-bottom: 24px;
-  gap: 24px;
+.image-container {
+  position: relative;
   width: 100%;
-}
-
-.masonry-item {
-  flex: 1;
-  transition: all 0.3s ease;
+  padding-bottom: 100%; /* This makes the container square */
   overflow: hidden;
-  border-radius: 8px;
+  background-color: #f5f5f5;
 }
 
-.masonry-item.single {
-  flex: 1 1 100%;
+.single {
+  padding-bottom: 50%; /* Half height for single image rows */
 }
 
-.masonry-item.double {
-  flex: 1 1 calc(50% - 12px);
+.double {
+  padding-bottom: 100%; /* Full height for double image rows */
 }
 
 .image-card {
+  width: 100%;
   height: 100%;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border-radius: 8px;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  background-color: #f5f5f5;
 }
 
-.image-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
 
 .image-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
 }
 
-.image-card:hover .image-preview {
-  transform: scale(1.03);
+/* No hover effects or overlays */
+
+/* Responsive adjustments */
+@media (max-width: 1264px) {
+  .masonry-layout {
+    padding: 0 24px;
+  }
+  
+  .masonry-row {
+    gap: 20px;
+  }
+  
+  .double-row .masonry-item {
+    flex: 1 1 calc(50% - 10px);
+    max-width: calc(50% - 10px);
+  }
 }
 
 @media (max-width: 960px) {
+  .folder-view {
+    padding: 16px 8px;
+  }
+  
+  .masonry-layout {
+    padding: 0 8px;
+  }
+  
   .masonry-row {
     flex-direction: column;
     gap: 16px;
+    margin-bottom: 16px;
   }
-
+  
   .masonry-item,
-  .masonry-item.single,
-  .masonry-item.double {
-    flex: 1 1 100%;
+  .single-row .masonry-item,
+  .double-row .masonry-item {
     width: 100%;
+    max-width: 100%;
+    flex: 1 1 100% !important;
   }
-
-  .v-img {
-    height: 400px !important;
+  
+  .image-card {
+    aspect-ratio: 4/3;
   }
 }
 
-@media (max-width: 600px) {
-  .v-img {
-    height: 300px !important;
-  }
+/* Card styles */
+.v-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+  height: 100%;
+  border-radius: 0;
+}
+
+.v-card:not(.on-hover) {
+  transform: scale(1);
+}
+
+.v-card.on-hover {
+  transform: scale(1.02);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Loading and error states */
+.loading, .error {
+  text-align: center;
+  padding: 3rem 1rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.error {
+  color: #ff4444;
+}
+
+/* Smooth transitions */
+.v-enter-active,
+.v-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.v-enter-from,
+.v-leave-to {
+  opacity: 0;
+}
+
+/* Breadcrumbs */
+:deep(.v-breadcrumbs) {
+  padding: 8px 0;
+  margin-bottom: 16px;
+}
+
+:deep(.v-breadcrumbs-item) {
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+:deep(.v-breadcrumbs-item--disabled) {
+  color: rgba(0, 0, 0, 0.6) !important;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Page title */
+.text-h4 {
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 0.5em 0;
+  color: #1a1a1a;
+}
+
+/* Empty state */
+.text-h6 {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.text-body-1 {
+  color: #666;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Download button */
+.v-btn--icon {
+  pointer-events: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.v-btn--icon:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
 }
 </style>
