@@ -1,11 +1,6 @@
 <template>
   <v-container fluid class="home-container">
-    <div class="home-header">
-      <div class="header-content">
-        <p class="studio-description">A CREATIVE STUDIO FOCUSED IN SIGN PAINTINGS, MURALS, VISUAL ART AND BRAND DESIGN</p>
-      </div>
-      <!-- <div class="header-border"></div> -->
-    </div>
+    <PageHeader />
     <main>
       <div v-if="!loading && !error" class="project-grid">
         <div v-for="folder in folders" :key="folder.id" class="project-card">
@@ -61,6 +56,7 @@
 <script setup>
 import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import PageHeader from '@/components/PageHeader.vue';
 
 const store = useStore();
 
@@ -129,29 +125,7 @@ const fetchFolders = async () => {
 </script>
 
 <style scoped>
-.home-header {
-  margin: 30px 0 30px; /* Space from nav and content */
-  width: 100%;
-  border-bottom: 3px solid #e0e0e0eb;
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-.studio-description {
-  font-family: 'Gotham', sans-serif;
-  font-weight: 400;
-  font-size: 1.1rem;
-  color: #333;
-  letter-spacing: 0.5px;
-  line-height: 1;
-  margin: 0 0 20px 0;
-  text-align: center;
-  text-transform: uppercase;
-}
+/* Header styles moved to PageHeader.vue */
 
 .header-border {
   width: 100%;

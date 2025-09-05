@@ -15,7 +15,9 @@
     </div>
   </div>
   <div class="nav-border"></div>
-  <router-view />
+  <main class="main-content">
+    <router-view />
+  </main>
 
   <footer>
     <div class="footer-content">
@@ -166,8 +168,19 @@ nav a.router-link-exact-active {
   color: #42b983;
 }
 
+/* Main content area */
+.main-content {
+  flex: 1;
+  padding-top: 0; /* Remove top padding since PageHeader is now sticky */
+  /* padding-bottom: 40px; */
+}
+
+/* Ensure the first element in main doesn't have extra top margin */
+.main-content > :first-child {
+  margin-top: 0;
+}
+
 footer {
-  /* background-color: #f0f0f0; Example background color */
   padding-bottom: 20px;
   text-align: center;
   margin-top: auto; /* Push the footer to the bottom */

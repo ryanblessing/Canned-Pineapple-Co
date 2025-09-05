@@ -1,5 +1,10 @@
 <template>
   <v-container fluid class="folder-view">
+    <PageHeader 
+      :folder-name="displayFolderName" 
+      :folder-description="folderMetadata?.description || ''" 
+    />
+    
     <v-row class="mt-0 pt-2">
       <v-col cols="12" class="py-0">
         <v-breadcrumbs :items="breadcrumbs" class="py-0 my-0" style="font-family: var(--font-gotham); color: #72a2e4;">
@@ -7,15 +12,6 @@
             <v-icon icon="mdi-chevron-right" size="small" class="mx-1"></v-icon>
           </template>
         </v-breadcrumbs>
-      </v-col>
-    </v-row>
-
-    <v-row class="mt-2 pb-2">
-      <v-col cols="12" class="text-center py-0">
-        <h3 class="text-h4 text-md-h3 mb-2 title-underline" style="color: #42b983 ; font-family: var(--font-gotham);">{{ displayFolderName }}</h3>
-          <p v-if="folderMetadata?.description" class="folder-description text-body-5 px-4">
-              {{ folderMetadata.description }}
-          </p>
       </v-col>
     </v-row>
 
@@ -102,6 +98,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
+import PageHeader from '@/components/PageHeader.vue';
 import { format } from 'date-fns/format'
 
 const route = useRoute()
