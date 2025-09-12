@@ -37,7 +37,7 @@ const dropboxFiles = ref([]);
 
 onMounted(async () => {
   try {
-    const res = await fetch('http://localhost:8080/api/dropbox/files');
+    // const res = await fetch('http://localhost:8080/api/dropbox/files');
     dropboxFiles.value = await res.json();
     console.log('📦 Dropbox Files:', dropboxFiles.value);
   } catch (err) {

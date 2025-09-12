@@ -39,14 +39,14 @@ const route = useRoute();
 
 <style scoped>
 .page-header {
-  position: sticky;
-  top: 140px; /* Height of the navigation bar */
+  position: fixed;
+  /* top: 140px; Height of the navigation bar */
   z-index: 999; /* Just below the navigation bar */
   background-color: white;
-  width: 100%;
+  width: 96%;
   margin: 0;
-  padding: 20px 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 5px 0 5px 0;
+  /* box-shadow: 0 2px 0 rgba(0,0,0,0.05); */
 }
 
 .header-content {

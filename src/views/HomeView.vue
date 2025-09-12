@@ -22,7 +22,7 @@
                     <div class="card-front-content">
                       <h4 class="folder-title">{{ folder.metadata?.title || folder.name }}</h4>
                       <p class="folder-location">
-                        {{ folder.metadata?.category || 'No Category Specified' }}
+                        {{ folder.metadata?.category || '' }}
                       </p>
                     </div>
                   </div>
@@ -70,13 +70,6 @@ onMounted(() => {
   fetchFolders();
 });
 
-// Truncate description to 100 characters
-const truncateDescription = (text) => {
-  if (!text) return '';
-  const maxLength = 100;
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-};
 
 // Expose fetchFolders for retry button
 const retryFetch = () => {
@@ -248,57 +241,47 @@ const fetchFolders = async () => {
   position: absolute;
   bottom: 0;
   left: 0;
-  right: 60%;
-  padding: 20px;
+  right: 0;
+  padding: 1.5rem 1rem 1rem;
   font-family: var(--font-gotham-medium);
   color: #fff;
-  /* text-align: left; */
-  /* z-index: 2; */
-  /* background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%); */
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.folder-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.2;
+  order: 1; /* Ensures title comes first */
 }
 
 .folder-location {
+  margin: 0;
   font-size: 0.9rem;
-  padding-top: 10px;
-  color: rgba(255, 255, 255, 0.9);
-  font-style: var(--font-gotham-medium);
+  opacity: 0.9;
+  order: 2; /* Ensures category comes after title */
 }
 
-.back-description {
-  color: white;
-  line-height: 1.4;
-  margin: 0 0 30px 0;
-  font-size: 1.4rem;
-  font-weight: 300;
-  max-width: 80%;
-  transform: translateY(20px);
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s;
-  opacity: 0.9;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.view-all {
-  color: white;
-  font-size: 0.9rem;
-  margin: 30px 0 0 0;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  opacity: 0.9;
-  font-style: italic;
+.folder-overlay {
   position: absolute;
-  bottom: 30px;
+  bottom: 0;
   left: 0;
   right: 0;
-  max-width: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 70%, transparent 100%);
+  padding: 1.5rem 1rem 1rem;
+  color: white;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 40%; /* Ensure minimum height for better text display */
 }
 
-/* .folder-link:hover .back-description {
-  transform: translateY(0);
-}
-
-.folder-link:hover .folder-card {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+/* .folder-card:hover .folder-overlay {
+  opacity: 0.9;
 } */
 
 .folder-thumbnail {
@@ -316,55 +299,10 @@ const fetchFolders = async () => {
   transition: opacity 0.3s ease;
 }
 
-.folder-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  /* background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.2) 100%); */
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
-}
-
-/* .folder-card:hover .folder-overlay {
-  opacity: 0.9;
-} */
-
-.folder-title {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 1.8rem;
-  color: white;
-  font-weight: 500;
-  margin: 0 0 5px 0;
-  font-size: 1.25rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  transition: transform 0.3s ease, padding 0.3s ease;
-  z-index: 2;
-}
-
-.folder-card:hover .folder-title {
-  transform: translateY(-5px);
-  padding-bottom: 1.8rem;
-}
-
-.card-back .back-description {
-  margin: 0;
-  font-size: 1.1rem;
-  line-height: 1.4;
-  color: white;
-  text-align: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  transition: all 0.3s ease;
-  opacity: 1;
-  transform: none;
-  flex-grow: 1;
+.card-back .back-description {  
   padding: 0 20px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  --webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
