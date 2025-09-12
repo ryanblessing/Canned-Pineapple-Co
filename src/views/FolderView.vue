@@ -5,19 +5,9 @@
       :folder-description="folderMetadata?.description || ''"
       :folder-services="folderMetadata?.services || ''"
     />
-    
-    <v-row class="mt-0 pt-2">
-      <v-col cols="12" class="py-0">
-        <v-breadcrumbs :items="breadcrumbs" class="py-0 my-0" style="font-family: var(--font-gotham); color: #72a2e4;">
-          <template v-slot:divider>
-            <v-icon icon="mdi-chevron-right" size="small" class="mx-1"></v-icon>
-          </template>
-        </v-breadcrumbs>
-      </v-col>
-    </v-row>
-
-    <!-- Loading State -->
-    <v-row v-if="loading" class="justify-center">
+    <!-- Images Grid -->
+    <!-- <v-container class="pa-0"> -->
+      <v-row v-if="loading" class="loader">
       <v-col cols="12" class="text-center">
         <v-progress-circular
           indeterminate
@@ -27,10 +17,8 @@
         <p class="mt-4">Loading images...</p>
       </v-col>
     </v-row>
-
-    <!-- Error State -->
     <v-alert
-      v-else-if="error"
+      v-if="error"
       type="error"
       class="ma-4"
     >
@@ -44,10 +32,8 @@
         Retry
       </v-btn>
     </v-alert>
-
-    <!-- Images Grid -->
-    <v-container v-if="images.length > 0" class="pa-0">
-      <v-row v-for="(row, rowIndex) in masonryRows" :key="rowIndex" no-gutters>
+    <div v-if="images.length > 0">
+      <v-row  v-for="(row, rowIndex) in masonryRows" :key="rowIndex" no-gutters>
         <v-col 
           v-for="(image, imgIndex) in row" 
           :key="`${rowIndex}-${imgIndex}`"
@@ -82,16 +68,19 @@
           </v-card>
         </v-col>
       </v-row>
-    </v-container>
-
-    <!-- Empty State -->
-    <v-row v-else class="justify-center">
-      <v-col v-if="!loading" cols="12" md="8" class="text-center">
+    </div>
+    <div v-else-if="images.length === 0 && !loading">
+      <v-row class="justify-center">
+      <v-col cols="12" md="8" class="text-center">
         <v-icon size="64" color="grey lighten-1" class="mb-4">mdi-image-off</v-icon>
         <h3 class="text-h6">No images found in this folder</h3>
         <p class="text-body-1 text-medium-emphasis">This folder doesn't contain any images.</p>
       </v-col>
     </v-row>
+    </div>
+    <!-- </v-container> -->
+
+    <!-- Empty State -->
   </v-container>
 </template>
 
@@ -396,15 +385,11 @@ onMounted(fetchFolderImages);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15) !important;
 }
 
-/* Loading and error states */
-.loading, .error {
-  text-align: center;
-  padding: 3rem 1rem;
-  min-height: 300px;
+.loader {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
+  min-height: 400px;
 }
 
 .error {
