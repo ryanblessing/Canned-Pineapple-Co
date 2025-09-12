@@ -134,7 +134,7 @@ const fetchFolders = async () => {
 .home-container {
   /* max-width: 1800px; */
   padding: 0;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .project-grid {
@@ -178,27 +178,6 @@ const fetchFolders = async () => {
   border-radius: 0 !important;
 }
 
-.card-back {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  /* transform: translateY(10px);
-  transition: all 0.3s ease; */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  overflow: hidden;
-  border-radius: 0 !important;
-  margin: 0;
-  padding: 0;
-}
-
 .background-image {
   position: absolute;
   top: 0;
@@ -217,12 +196,6 @@ const fetchFolders = async () => {
   pointer-events: none;
 } */
 
-.folder-link:hover .card-back {
-  opacity: 1;
-  /* transform: translateY(0); */
-  pointer-events: auto;
-  /* border-radius: 0 !important; */
-}
 
 .card-content {
   position: relative;
@@ -298,17 +271,6 @@ const fetchFolders = async () => {
 .folder-link:hover .folder-thumbnail {
   opacity: 0.8;
   transition: opacity 0.3s ease;
-}
-
-.card-back .back-description {  
-  padding: 0 20px;
-  display: -webkit-box;
-  --webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-height: 3em;
-  white-space: normal;
 }
 
 /* Loading and error states */

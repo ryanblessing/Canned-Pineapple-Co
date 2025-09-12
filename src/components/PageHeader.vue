@@ -1,5 +1,4 @@
 <template>
-  <div class="page-header">
     <div class="header-content">
       <slot>
         <template v-if="$route.name === 'home'">
@@ -8,28 +7,22 @@
           </p>
         </template>
         <template v-else-if="$route.name === 'folder'">
-          <!-- <div class="folder-header"> -->
           <div class="header-section title-section">
             <p class="header-text" style="color: #42b983; font-weight: 700; font-size: 1.5rem;">{{ folderName }}</p>
           </div>
-          <div class="divider"></div>
           <div class="header-section description-section">
             <p v-if="folderDescription" class="header-text">
               {{ folderDescription }}
             </p>
           </div>
-          <div class="divider"></div>
           <div class="header-section services-section">
             <p v-if="folderServices" class="header-text">
               {{ folderServices }}
             </p>
           </div>
-          <!-- </div> -->
         </template>
       </slot>
     </div>
-    <!-- <div class="header-border"></div> -->
-  </div>
 </template>
 
 <script setup>
@@ -55,20 +48,6 @@ const route = useRoute();
 </script>
 
 <style scoped>
-.page-header {
-  position: fixed;
-  z-index: 1000;
-  background-color: white;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  margin: 0;
-  padding: 10px 0;
-  border-top: 3px solid #e0e0e0eb;
-  border-bottom: 3px solid #e0e0e0eb;
-  /* padding: 30px 0 30px 0; */
-}
-
 /* Header layout */
 .header-content {
   display: flex;
@@ -76,6 +55,9 @@ const route = useRoute();
   width: 100%;
   justify-content: center;
   padding: 0 20px;
+  min-height: 100px;
+  border-top: 3px solid #e0e0e0eb;
+  border-bottom: 3px solid #e0e0e0eb;
 }
 .folder-header {
   display: flex;
@@ -115,6 +97,7 @@ const route = useRoute();
   border-left: 3px solid #e0e0e0eb;
   width: 20%;
   flex: 0 0 20%;
+  padding: 0 1rem;
 }
 
 /* Text styles */
@@ -131,17 +114,10 @@ const route = useRoute();
 }
 
 /* Divider */
-/* .divider {
-  height: 100%;
-  width: 1px;
-  background-color: #e0e0e0;
-} */
-
-.header-border {
-  width: 100%;
-  height: 3px;
-  background-color: #e0e0e0;
-  /* margin: 30px 0 20px 0; */
-  position: relative;
+.divider {
+  height: 150%;
+  width: 3px;
+  background-color: #e0e0e0eb;
 }
+
 </style>
