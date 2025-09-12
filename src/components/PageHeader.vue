@@ -28,7 +28,7 @@
         </template>
       </slot>
     </div>
-    <div class="header-border"></div>
+    <!-- <div class="header-border"></div> -->
   </div>
 </template>
 
@@ -57,11 +57,16 @@ const route = useRoute();
 <style scoped>
 .page-header {
   position: fixed;
-  z-index: 999;
+  z-index: 1000;
   background-color: white;
+  justify-content: center;
+  align-items: center;
   width: 100%;
   margin: 0;
-  padding: 30px 0;
+  padding: 10px 0;
+  border-top: 3px solid #e0e0e0eb;
+  border-bottom: 3px solid #e0e0e0eb;
+  /* padding: 30px 0 30px 0; */
 }
 
 /* Header layout */
@@ -69,11 +74,9 @@ const route = useRoute();
   display: flex;
   align-items: center;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
+  justify-content: center;
   padding: 0 20px;
 }
-
 .folder-header {
   display: flex;
   width: 100%;
@@ -91,9 +94,9 @@ const route = useRoute();
 }
 
 .title-section {
-  justify-content: flex-start;
+  justify-content: center;
+  text-align: center;
   border-right: 3px solid #e0e0e0eb;
-  padding-left: 0;
   width: 20%;
   flex: 0 0 20%;
 }
@@ -107,10 +110,9 @@ const route = useRoute();
 }
 
 .services-section {
-  justify-content: flex-end;
-  text-align: right;
+  justify-content: center;
+  text-align: center;
   border-left: 3px solid #e0e0e0eb;
-  padding-right: 0;
   width: 20%;
   flex: 0 0 20%;
 }
@@ -129,27 +131,17 @@ const route = useRoute();
 }
 
 /* Divider */
-.divider {
+/* .divider {
   height: 100%;
   width: 1px;
   background-color: #e0e0e0;
-}
+} */
 
 .header-border {
   width: 100%;
   height: 3px;
   background-color: #e0e0e0;
-  margin: 30px 0 20px 0;
+  /* margin: 30px 0 20px 0; */
   position: relative;
 }
-
-/* .header-border::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background-color: #e0e0e0;
-} */
 </style>

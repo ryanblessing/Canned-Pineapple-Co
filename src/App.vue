@@ -14,7 +14,7 @@
       </nav>
     </div>
   </div>
-  <div class="nav-border"></div>
+  <!-- <div class="nav-border"></div> -->
   <main class="main-content">
     <router-view />
   </main>
@@ -57,7 +57,7 @@ onMounted(async () => {
 
 body {
   margin: 0;
-  padding: 0 30px;
+  padding: 0 30px 0 30px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -104,7 +104,7 @@ p, span, div, a, button, input, textarea, select, label {
   justify-content: center;
   min-height: 120px;  /* Increased minimum height */
   box-sizing: border-box;
-  border-bottom: 3px solid #e0e0e0eb;
+  /* border-bottom: 3px solid #e0e0e0eb; */
   padding-bottom: 20px;
 }
 
