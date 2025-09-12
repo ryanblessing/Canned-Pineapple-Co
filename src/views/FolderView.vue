@@ -2,7 +2,8 @@
   <v-container fluid class="folder-view">
     <PageHeader 
       :folder-name="displayFolderName" 
-      :folder-description="folderMetadata?.description || ''" 
+      :folder-description="folderMetadata?.description || ''"
+      :folder-services="folderMetadata?.services || ''"
     />
     
     <v-row class="mt-0 pt-2">

@@ -101,6 +101,7 @@ const fetchFolders = async () => {
         location: folder.metadata?.location || 'Location not specified',
         description: folder.metadata?.description || `View all ${folder.name} photos`,
         category: folder.metadata?.category || '',
+        services: folder.metadata?.services || '',
         tags: Array.isArray(folder.metadata?.tags) ? folder.metadata.tags : []
       }
     }));
