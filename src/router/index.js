@@ -11,6 +11,12 @@ const routes = [{
     component: HomeView,
   },
   {
+    path: '/work/:category',
+    name: 'work-category',
+    component: () => import('@/views/WorkGallery.vue'),
+    props: true
+  },
+  {
     path: "/folder/:folderName",
     name: "folder",
     component: () => import("../views/FolderView.vue"),
