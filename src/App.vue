@@ -28,20 +28,6 @@
                   <router-link role="menuitem" :to="{ path: '/work/branding' }">BRANDING</router-link>
                 </div>
               </div>
-              <!-- <ul class="dropdown-menu" role="menu" aria-label="Work categories">
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
-                </li>
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">GOLD LEAF</router-link>
-                </li>
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/murals' }">MURALS</router-link>
-                </li>
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/branding' }">BRANDING</router-link>
-                </li>
-              </ul> -->
             </li>
 
             <!-- Other nav links -->
@@ -302,8 +288,9 @@ nav .dropdown > .dropdown-toggle:focus-visible {
   transition: color 0.2s ease;}
 
 .dropdown-menu a:hover {
-  background-color: #f5f5f5;
+  background-color: white;
   color: #b30202;
+  opacity: .5;
 }
 
 /* Main content area */
