@@ -20,7 +20,15 @@
               >
                 WORK ▾
               </span>
-              <ul class="dropdown-menu" role="menu" aria-label="Work categories">
+              <div class="dropdown-menu" role="menu" aria-label="Work categories">
+                <div class="menu-row">
+                  <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">GOLD LEAF</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/murals' }">MURALS</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/branding' }">BRANDING</router-link>
+                </div>
+              </div>
+              <!-- <ul class="dropdown-menu" role="menu" aria-label="Work categories">
                 <li role="none">
                   <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
                 </li>
@@ -33,7 +41,7 @@
                 <li role="none">
                   <router-link role="menuitem" :to="{ path: '/work/branding' }">BRANDING</router-link>
                 </li>
-              </ul>
+              </ul> -->
             </li>
 
             <!-- Other nav links -->
@@ -229,20 +237,47 @@ nav .dropdown > .dropdown-toggle:focus-visible {
 }
 
 /* Dropdown menu */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
 .dropdown-menu {
   display: none;
   position: absolute;
-  top: 100%;      /* menu touches the trigger, no dead zone */
-  left: 0;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   background: white;
   border: 1px solid #eee;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-  list-style: none;
-  padding: 0.5rem 0;
-  margin: 0;      /* no gap = no hover flicker */
-  min-width: 180px;
+  padding: 0.5rem 1.5rem;
   z-index: 2000;
-  text-align: left;
+  min-width: max-content;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.menu-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-row a {
+  color: #3e2723;
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.2rem;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.menu-row a:hover {
+  color: #b30202;
+  background-color: #f9f9f9;
+  border-radius: 3px;
 }
 
 /* Show only while hovered (prevents sticking) */
@@ -250,17 +285,21 @@ nav .dropdown > .dropdown-toggle:focus-visible {
   display: block;
 }
 
-.dropdown-menu li { padding: 0; }
+.dropdown-menu .v-list-item {
+  display: inline-block;
+  padding: 0 1rem;
+  margin: 0;
+}
 
 .dropdown-menu a {
-  display: block;
-  padding: 0.55rem 1rem;
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
   color: #3e2723;
   font-size: 1.05rem;
   text-decoration: none;
   white-space: nowrap;
   line-height: 1.3;
-}
+  transition: color 0.2s ease;}
 
 .dropdown-menu a:hover {
   background-color: #f5f5f5;
