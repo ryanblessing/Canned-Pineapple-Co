@@ -22,6 +22,7 @@
               </span>
               <div class="dropdown-menu" role="menu" aria-label="Work categories">
                 <div class="menu-row">
+                  <router-link role="menuitem" :to="{ path: '/' }">HOME</router-link>
                   <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
                   <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">GOLD LEAF</router-link>
                   <router-link role="menuitem" :to="{ path: '/work/murals' }">MURALS</router-link>

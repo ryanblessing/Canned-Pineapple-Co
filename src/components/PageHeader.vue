@@ -8,7 +8,7 @@
         </template>
         <template v-else-if="$route.name === 'folder'">
           <div class="header-section title-section">
-            <p class="header-text" style="color: #42b983; font-weight: 700; font-size: 1.5rem;">{{ folderName }}</p>
+            <p class="header-text" style="color: #3e2723; font-weight: 700; font-size: 1.5rem;">{{ folderName }}</p>
           </div>
           <div class="header-section description-section">
             <p v-if="folderDescription" class="header-text">
@@ -70,23 +70,25 @@ const route = useRoute();
 .header-section {
   display: flex;
   align-items: center;
-  min-height: 80px;
+  min-height: 60px;
   box-sizing: border-box;
-  padding: 5px 0;
+  padding: 5px 0 0 0;
 }
 
 .title-section {
   justify-content: center;
   text-align: center;
-  border-right: 3px solid #e0e0e0eb;
-  width: 20%;
+  /* border-right: 3px solid #e0e0e0eb; */
+  width: 15%;
   flex: 0 0 20%;
 }
 
 .description-section {
   justify-content: center;
   text-align: center;
-  width: 60%;
+  border-right: 3px solid #e0e0e0eb;
+  border-left: 3px solid #e0e0e0eb;
+  width: 70%;
   flex: 0 0 60%;
   padding: 0 30px;
 }
@@ -94,8 +96,8 @@ const route = useRoute();
 .services-section {
   justify-content: center;
   text-align: center;
-  border-left: 3px solid #e0e0e0eb;
-  width: 20%;
+  /* border-left: 3px solid #e0e0e0eb; */
+  width: 15%;
   flex: 0 0 20%;
   padding: 0 1rem;
 }
@@ -105,10 +107,10 @@ const route = useRoute();
   font-family: 'Gotham', sans-serif;
   font-weight: 400;
   font-size: 1rem;
-  color: #333;
-  letter-spacing: 0.5px;
-  line-height: 1.6;
-  margin: 10px 0 20px;
+  color: #3e2723;
+  letter-spacing: 0.35px;
+  line-height: 1;
+  margin: 10px 0 10px;
   text-align: center;
   text-transform: uppercase;
 }

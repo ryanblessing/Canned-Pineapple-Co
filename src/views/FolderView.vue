@@ -13,14 +13,14 @@
       </v-col>
     </v-row>
 
-    <v-alert v-if="error" type="error" class="ma-4">
+    <!-- <v-alert v-if="error" type="error" class="ma-4">
       {{ error }}
       <v-btn color="white" variant="text" class="ml-4" @click="fetchFolderImages">
         Retry
       </v-btn>
-    </v-alert>
+    </v-alert> -->
 
-    <div v-if="images.length > 0">
+    <div class="images-grid" v-if="images.length > 0">
       <v-row v-for="(row, rowIndex) in masonryRows" :key="rowIndex" no-gutters>
         <v-col
           v-for="image in row"
@@ -266,6 +266,10 @@ onMounted(fetchFolderImages)
   .single-row .masonry-item,
   .double-row .masonry-item { width: 100%; max-width: 100%; flex: 1 1 100% !important; }
   .image-card { aspect-ratio: 4/3; }
+}
+
+.images-grid{
+  padding-top: 3rem;
 }
 
 .v-card {
