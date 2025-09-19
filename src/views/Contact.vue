@@ -1,21 +1,18 @@
 <!-- Contact Form -->
 <template>
+  <div class="header-border"></div>
   <v-container fluid>
     <div class="contact-info">
-      <p  style="font-size: 1.3rem; color: #42b983; font-family: var(--font-gotham);"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT:</p>
-        <div class="email-container">
-          <v-icon>mdi-email</v-icon>
-          <h3>
-            <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" style="font-family: var(--font-gotham); color: #72a2e4; font-size: 2rem; text-decoration: none;">
-              INFO@CANNEDPINEAPPLECO.COM
-            </a>
-          </h3>
-        </div>
-      </div>
+      <p class="contact-title"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT:</p>
+      <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" class="contact-email">
+        INFO@CANNEDPINEAPPLECO.COM
+      </a>
+    </div>
   </v-container>
 </template>
 
 <script>
+
 export default {
   name: 'ContactView'
 };
@@ -32,5 +29,22 @@ export default {
   font-family: var(--font-gotham);
   /* margin: 0 auto;
   padding: 10px; */
+}
+.header-border {
+  border-top: 3px solid #e0e0e0eb;
+  margin: 0 auto;
+  width: 100%;
+}
+.contact-title {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #b30202;
+  font-family: var(--font-gotham);
+}
+.contact-email {
+  font-family: var(--font-gotham);
+  color: #3e2723;
+  font-size: 2rem;
+  text-decoration: none;
 }
 </style>
