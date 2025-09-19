@@ -3,7 +3,7 @@
   <div class="header-container">
     <div class="logo-container">
       <router-link to="/" class="logo-link" aria-label="Go to homepage">
-        <img :src="logo" alt="Canned Pineapple" class="logo" />
+        <img :src="logo" alt="Canned Pineapple" class="logo"  @click="this.$router.push('/')"/>
       </router-link>
     </div>
     <div class="nav-content">
@@ -22,7 +22,7 @@
               </span>
               <div class="dropdown-menu" role="menu" aria-label="Work categories">
                 <div class="menu-row">
-                  <router-link role="menuitem" :to="{ path: '/' }">HOME</router-link>
+                  <!-- <router-link role="menuitem" :to="{ path: '/' }">HOME</router-link> -->
                   <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
                   <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">GOLD LEAF</router-link>
                   <router-link role="menuitem" :to="{ path: '/work/murals' }">MURALS</router-link>
@@ -82,7 +82,7 @@ const year = new Date().getFullYear()
 
 body {
   margin: 0;
-  padding: 0 40px 0 40px;
+  padding: 0 50px 0 50px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -116,16 +116,18 @@ p, span, div, a, button, input, textarea, select, label {
   top: 0;
   z-index: 1000;
   background-color: white;
-  padding: 0.5rem 0;
+  padding: 0 0 0 .5rem;
   box-sizing: border-box;
   width: 100%;
 }
 
 /* Logo container (25% width) */
 .logo-container {
-  width: 25%;
-  display: flex;
-  align-items: center;
+  margin-top: 15px;
+  width: 15%;
+  padding-left: 25px;
+  /* display: flex;
+  align-items: center; */
 }
 
 /* Logo link */
@@ -135,7 +137,7 @@ p, span, div, a, button, input, textarea, select, label {
 }
 
 .logo {
-  max-height: 80px;
+  max-height: 60px;
   height: auto;
   width: auto;
   display: block;
@@ -143,7 +145,7 @@ p, span, div, a, button, input, textarea, select, label {
 
 /* Navigation content (75% width) */
 .nav-content {
-  width: 50%;
+  width: 65%;
   display: flex;
   justify-content: center;
   align-items: center;

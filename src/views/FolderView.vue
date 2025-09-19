@@ -229,7 +229,7 @@ onMounted(fetchFolderImages)
   background-color: #42b983;
 }
 
-.folder-view { max-width: 1800px; margin: 0 auto; padding: 0 16px; }
+.folder-view { max-width: 1800px; margin: 0 auto; padding: 0 ; }
 
 .image-container {
   position: relative; width: 100%; padding-bottom: 100%;
@@ -269,7 +269,7 @@ onMounted(fetchFolderImages)
 }
 
 .images-grid{
-  padding-top: 3rem;
+  padding-top: .85rem;
 }
 
 .v-card {

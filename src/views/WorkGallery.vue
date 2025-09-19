@@ -95,7 +95,7 @@ onMounted(fetchCategory)
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  padding-top: 3rem;
+  padding-top: .85rem;
   padding-bottom: 0.5rem;
 }
 

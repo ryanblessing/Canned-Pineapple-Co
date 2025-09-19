@@ -28,7 +28,7 @@
           </p>
           
           <p class="text-body-1" style="font-family: var(--font-gotham);">
-            Based in <b style="color: #42b983;">Nashville, TN</b>, we bring our work to life across the country—collaborating with businesses, brands, and communities to create art that connects and inspires. Whether it's a storefront that needs timeless gold leaf lettering or a statement mural that turns heads, we design with purpose and passion.
+            Based in Nashville, TN, we bring our work to life across the country—collaborating with businesses, brands, and communities to create art that connects and inspires. Whether it's a storefront that needs timeless gold leaf lettering or a statement mural that turns heads, we design with purpose and passion.
           </p>
         </div>
       </v-col>
