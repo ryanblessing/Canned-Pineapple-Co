@@ -1,64 +1,61 @@
 <!-- eslint-disable prettier/prettier -->
 <template>
   <div class="header-container">
-    <div class="nav-content">
-      <!-- Left: Clickable logo (stays left, vertically centered) -->
+    <div class="logo-container">
       <router-link to="/" class="logo-link" aria-label="Go to homepage">
         <img :src="logo" alt="Canned Pineapple" class="logo" />
       </router-link>
-
-      <!-- Center: Nav (stays centered on the page) -->
+    </div>
+    <div class="nav-content">
       <nav>
-        <ul>
-          <!-- WORK dropdown -->
-          <li class="dropdown">
-            <span
-              class="dropdown-toggle"
-              role="button"
-              aria-haspopup="true"
-              aria-expanded="false"
-              tabindex="0"
-            >
-              WORK ▾
-            </span>
-            <ul class="dropdown-menu" role="menu" aria-label="Work categories">
-              <li role="none">
-                <router-link role="menuitem" :to="{ path: '/work/signs' }">Signs</router-link>
-              </li>
-              <li role="none">
-                <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">Gold Leaf</router-link>
-              </li>
-              <li role="none">
-                <router-link role="menuitem" :to="{ path: '/work/murals' }">Murals</router-link>
-              </li>
-              <li role="none">
-                <router-link role="menuitem" :to="{ path: '/work/branding' }">Branding</router-link>
-              </li>
-            </ul>
-          </li>
+          <ul>
+            <!-- WORK dropdown -->
+            <li class="dropdown">
+              <span
+                class="dropdown-toggle"
+                role="button"
+                aria-haspopup="true"
+                aria-expanded="false"
+                tabindex="0"
+              >
+                WORK ▾
+              </span>
+              <ul class="dropdown-menu" role="menu" aria-label="Work categories">
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/signs' }">Signs</router-link>
+                </li>
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">Gold Leaf</router-link>
+                </li>
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/murals' }">Murals</router-link>
+                </li>
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/branding' }">Branding</router-link>
+                </li>
+              </ul>
+            </li>
 
-          <!-- Other nav links -->
-          <li><router-link to="/about">ABOUT</router-link></li>
-          <li><router-link to="/contact">CONTACT</router-link></li>
-          <li>
-            <a
-              href="https://www.instagram.com/cannedpineappleco/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              FOLLOW
-            </a>
-          </li>
-          <!--
-          <li><router-link to="/shop">SHOP</router-link></li>
-          -->
-        </ul>
+            <!-- Other nav links -->
+            <li><router-link to="/about">ABOUT</router-link></li>
+            <li><router-link to="/contact">CONTACT</router-link></li>
+            <li>
+              <a
+                href="https://www.instagram.com/cannedpineappleco/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                FOLLOW
+              </a>
+            </li>
+            <!--
+            <li><router-link to="/shop">SHOP</router-link></li>
+            -->
+          </ul>
       </nav>
-
-      <!-- Right: empty spacer keeps the nav perfectly centered -->
-      <div class="nav-spacer" aria-hidden="true"></div>
     </div>
   </div>
+  <!-- </div> -->
 
   <main class="main-content">
     <router-view />
@@ -117,45 +114,49 @@ p, span, div, a, button, input, textarea, select, label {
   padding-top: 0;
 }
 
-/* Header */
+/* Header container */
 .header-container {
+  display: flex;
   position: sticky;
   top: 0;
   z-index: 1000;
   background-color: white;
-  padding: 1.5rem 0;
-  display: flex;
-  justify-content: center;
+  padding: 0.5rem 0;
   box-sizing: border-box;
-}
-
-/* ✅ Grid layout: [logo] [nav centered] [spacer] */
-.nav-content {
   width: 100%;
-  max-width: 1200px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr; /* left / center / right */
-  align-items: center;                 /* vertical centering */
-  gap: 20px;
 }
 
-/* Left cell: logo */
+/* Logo container (25% width) */
+.logo-container {
+  width: 25%;
+  display: flex;
+  align-items: center;
+}
+
+/* Logo link */
 .logo-link {
-  justify-self: start;                 /* stick to the left edge of the grid */
   display: inline-flex;
   align-items: center;
 }
 
 .logo {
-  max-height: 100px;
+  max-height: 80px;
   height: auto;
   width: auto;
   display: block;
 }
 
-/* Center cell: nav */
+/* Navigation content (75% width) */
+.nav-content {
+  width: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Navigation */
 nav {
-  justify-self: center;                /* center the nav block in the page */
+  text-align: center;
   margin: 0;
 }
 
@@ -176,7 +177,8 @@ nav ul {
 /* Default blue for links */
 nav a {
   text-decoration: none;
-  color: #72a2e4;
+  /* color: #72a2e4; */
+  color: #3e2723;
   font-weight: 700;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
@@ -201,7 +203,7 @@ nav a.router-link-exact-active {
 
 /* Make WORK look like links + match metrics exactly */
 nav .dropdown > .dropdown-toggle {
-  color: #72a2e4;
+  color: #3e2723;
   font-weight: 700;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
