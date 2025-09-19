@@ -111,8 +111,9 @@ const fetchFolders = async () => {
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* exactly three columns */
-  gap: 0.5rem;
-  padding: 0.5rem 0;
+  gap: 1rem;
+  padding-top: 3rem;
+  padding-bottom: 0.5rem;
 }
 
 .folder-link {
@@ -187,7 +188,7 @@ const fetchFolders = async () => {
 .folder-title {
   margin: 0;
   color: #000;
-  font-size: 1.1rem;
+  font-size: 21px;
   font-weight: 600;
   text-align: center;
   line-height: 1.2;

@@ -22,16 +22,16 @@
               </span>
               <ul class="dropdown-menu" role="menu" aria-label="Work categories">
                 <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/signs' }">Signs</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
                 </li>
                 <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">Gold Leaf</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">GOLD LEAF</router-link>
                 </li>
                 <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/murals' }">Murals</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/murals' }">MURALS</router-link>
                 </li>
                 <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/branding' }">Branding</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/branding' }">BRANDING</router-link>
                 </li>
               </ul>
             </li>
@@ -87,7 +87,7 @@ const year = new Date().getFullYear()
 
 body {
   margin: 0;
-  padding: 0 30px 0 30px;
+  padding: 0 40px 0 40px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -177,7 +177,6 @@ nav ul {
 /* Default blue for links */
 nav a {
   text-decoration: none;
-  /* color: #72a2e4; */
   color: #3e2723;
   font-weight: 700;
   font-size: 1.3rem;
@@ -191,7 +190,7 @@ nav a {
 
 nav a:hover,
 nav a.router-link-exact-active {
-  color: #42b983;
+  color: #b30202;
 }
 
 /* Dropdown */
@@ -219,12 +218,12 @@ nav .dropdown > .dropdown-toggle {
 /* Hover = green */
 nav .dropdown:hover > .dropdown-toggle,
 nav .dropdown > .dropdown-toggle:hover {
-  color: #42b983;
+  color: #b30202;
 }
 
 /* Optional: focus for accessibility */
 nav .dropdown > .dropdown-toggle:focus-visible {
-  outline: 2px solid #42b983;
+  outline: 2px solid #3e2723;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -256,7 +255,7 @@ nav .dropdown > .dropdown-toggle:focus-visible {
 .dropdown-menu a {
   display: block;
   padding: 0.55rem 1rem;
-  color: #72a2e4;
+  color: #3e2723;
   font-size: 1.05rem;
   text-decoration: none;
   white-space: nowrap;
@@ -265,7 +264,7 @@ nav .dropdown > .dropdown-toggle:focus-visible {
 
 .dropdown-menu a:hover {
   background-color: #f5f5f5;
-  color: #42b983;
+  color: #b30202;
 }
 
 /* Main content area */
