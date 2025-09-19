@@ -1,5 +1,5 @@
 <template>
-    <div class="header-content">
+    <div v-if="$route.name !== 'about' || $route.name !== 'contact'" class="header-content">
       <slot>
         <template v-if="$route.name === 'home'">
           <p class="header-text">
@@ -23,6 +23,10 @@
         </template>
       </slot>
     </div>
+    <!-- <div v-if="$route.name === 'about'">
+      <p class="header-section">
+      </p>
+    </div> -->
 </template>
 
 <script setup>

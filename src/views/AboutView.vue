@@ -1,5 +1,11 @@
 <template>
-  <v-container class="about-container">
+  <div class="about-page">
+    <div class="header-border"></div>
+    <v-container class="about-container">
+      <div class="about-header">
+        <h1 class="about-title"></h1>
+        <div class="title-border"></div>
+      </div>
     <v-row align="start" class="about-row">
       <!-- Left Column - Image -->
       <v-col cols="12" md="6" class="image-col">
@@ -14,7 +20,7 @@
 
       <!-- Right Column - Text Content -->
       <v-col cols="12" md="6" class="text-col">
-        <h1 class="text-h4 text-md-h3 mb-6" style="font-family: var(--font-gotham); color: #72a2e4;">About</h1>
+        <h1 class="about-title">ABOUT</h1>
         
         <div class="about-content">
           <p class="text-body-1 mb-4" style="font-family: var(--font-gotham);">
@@ -27,20 +33,52 @@
         </div>
       </v-col>
     </v-row>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup>
 import aboutImage from '../assets/about_img.jpg';
+import PageHeader from '@/components/PageHeader.vue';
 </script>
 
 <style scoped>
+.about-page {
+  position: relative;
+}
+
+.header-border {
+  border-top: 3px solid #e0e0e0eb;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.about-header {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.about-title {
+  font-family: 'Gotham', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #3e2723;
+  margin: 0;
+  display: flex;
+  justify-items: flex-start;
+  /* padding: 1rem 0 0 0; */
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  border-bottom: 3px solid #e0e0e0eb;
+}
+
 .about-container {
-  padding: 4rem 1rem;
+  padding: 2rem 1rem;
   min-height: calc(100vh - 300px);
   display: flex;
   align-items: flex-start;
-  padding-top: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .about-row {
@@ -49,11 +87,13 @@ import aboutImage from '../assets/about_img.jpg';
 }
 
 .image-col {
-  padding: 1rem;
+  padding: 1rem 1rem 1rem 0;
 }
 
 .text-col {
-  padding: 1rem 2rem;
+  padding: 1rem 0 1rem 2rem;
+  /* border-left: 3px solid #e0e0e0eb; */
+  min-height: 100%;
 }
 
 .about-image {
@@ -67,6 +107,7 @@ import aboutImage from '../assets/about_img.jpg';
 .about-content {
   line-height: 1.8;
   text-align: left;
+  padding-top: 1rem;
 }
 
 h1 {
