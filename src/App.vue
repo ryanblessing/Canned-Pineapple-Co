@@ -1,49 +1,77 @@
 <!-- eslint-disable prettier/prettier -->
 <template>
   <div class="header-container">
+    <div class="logo-container">
+      <router-link to="/" class="logo-link" aria-label="Go to homepage">
+        <img :src="logo" alt="Canned Pineapple" class="logo" />
+      </router-link>
+    </div>
     <div class="nav-content">
-      <img :src="logo" :alt="logo" class="logo">
       <nav>
-        <ul>
-          <li><router-link to="/">WORK</router-link></li> 
-          <li><router-link to="/about">ABOUT</router-link></li> 
-          <li><router-link to="/contact">CONTACT</router-link></li> 
-          <li><a href="https://www.instagram.com/cannedpineappleco/" target="_blank" rel="noopener noreferrer">FOLLOW</a></li> 
-          <li><router-link to="/shop">SHOP</router-link></li>
-        </ul>
+          <ul>
+            <!-- WORK dropdown -->
+            <li class="dropdown">
+              <span
+                class="dropdown-toggle"
+                role="button"
+                aria-haspopup="true"
+                aria-expanded="false"
+                tabindex="0"
+              >
+                WORK ▾
+              </span>
+              <ul class="dropdown-menu" role="menu" aria-label="Work categories">
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/signs' }">Signs</router-link>
+                </li>
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">Gold Leaf</router-link>
+                </li>
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/murals' }">Murals</router-link>
+                </li>
+                <li role="none">
+                  <router-link role="menuitem" :to="{ path: '/work/branding' }">Branding</router-link>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Other nav links -->
+            <li><router-link to="/about">ABOUT</router-link></li>
+            <li><router-link to="/contact">CONTACT</router-link></li>
+            <li>
+              <a
+                href="https://www.instagram.com/cannedpineappleco/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                FOLLOW
+              </a>
+            </li>
+            <!--
+            <li><router-link to="/shop">SHOP</router-link></li>
+            -->
+          </ul>
       </nav>
     </div>
   </div>
-  <div class="nav-border"></div>
+  <!-- </div> -->
+
   <main class="main-content">
     <router-view />
   </main>
 
   <footer>
     <div class="footer-content">
-      <p>
-        <b>&copy; {{ year }} Canned Pineapple Co. </b>
-      </p>
+      <p><b>&copy; {{ year }} Canned Pineapple Co.</b></p>
     </div>
   </footer>
 </template>
 <!-- eslint-disable prettier/prettier -->
+
 <script setup>
-import { onMounted, ref } from 'vue';
-import logo from './assets/logo.png';
-
-const year = new Date().getFullYear();
-const dropboxFiles = ref([]);
-
-onMounted(async () => {
-  try {
-    const res = await fetch('http://localhost:8080/api/dropbox/files');
-    dropboxFiles.value = await res.json();
-    console.log('📦 Dropbox Files:', dropboxFiles.value);
-  } catch (err) {
-    console.error('❌ Error fetching Dropbox files:', err);
-  }
-});
+import logo from './assets/logo.png' // If using public/, use '/logo.png' instead
+const year = new Date().getFullYear()
 </script>
 
 <!-- eslint-disable prettier/prettier -->
@@ -55,9 +83,11 @@ onMounted(async () => {
   --font-gotham-medium: 'Gotham Medium', Arial, sans-serif;
 }
 
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
-  padding: 0 30px;
+  padding: 0 30px 0 30px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -80,60 +110,54 @@ p, span, div, a, button, input, textarea, select, label {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  font-weight: 500;
-  padding-top: 0; /* Remove any top padding to prevent content from being hidden under the sticky nav */
+  font-weight: 700;
+  padding-top: 0;
 }
 
-/* .nav-border {
-  width: 100%;
-  position: sticky;
-  padding: 0;
-  margin: 0;
-  height: 3px;
-  background-color: #e0e0e0eb;
-  align-self: center;
-} */
-
+/* Header container */
 .header-container {
+  display: flex;
   position: sticky;
   top: 0;
   z-index: 1000;
   background-color: white;
-  padding: 2rem 0 1.2rem;  /* Increased top padding */
-  display: flex;
-  justify-content: center;
-  min-height: 120px;  /* Increased minimum height */
+  padding: 0.5rem 0;
   box-sizing: border-box;
-  border-bottom: 3px solid #e0e0e0eb;
-  padding-bottom: 20px;
+  width: 100%;
 }
 
-/* .nav-content {
-  width: 100%;
-  max-width: 1200px;
+/* Logo container (25% width) */
+.logo-container {
+  width: 25%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-} */
-
-.nav-content {
-  width: 100%;
-  max-width: 1200px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding-top: 2rem;  /* Added top padding */
 }
+
+/* Logo link */
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+}
+
 .logo {
-  max-height: 100px;
-  position: absolute;
-  left: 0px;
-  top: 20px;
+  max-height: 80px;
+  height: auto;
+  width: auto;
+  display: block;
 }
 
+/* Navigation content (75% width) */
+.nav-content {
+  width: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Navigation */
 nav {
-  margin: 0 auto;
+  text-align: center;
+  margin: 0;
 }
 
 nav ul {
@@ -142,37 +166,112 @@ nav ul {
   margin: 0;
   display: flex;
   gap: 25px;
+  align-items: center;
 }
 
+/* Right cell: spacer (empty, balances grid) */
+.nav-spacer {
+  justify-self: end;                   /* not visible, just layout */
+}
+
+/* Default blue for links */
 nav a {
   text-decoration: none;
-  color: #72a2e4;
-  font-weight: 500;
+  /* color: #72a2e4; */
+  color: #3e2723;
+  font-weight: 700;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
+  line-height: 1.3;
+  padding: 0.25rem 0;
   transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
 }
 
-nav a:hover {
+nav a:hover,
+nav a.router-link-exact-active {
   color: #42b983;
 }
-nav li a {
-  font-weight: bolder;
-  color: #72a2e4;
-  /* color: #a0accb; */
-  /* color: #2c3e50;  */
-  text-decoration: none; /* Remove underlines from links */
+
+/* Dropdown */
+.dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-nav a.router-link-exact-active {
+/* Make WORK look like links + match metrics exactly */
+nav .dropdown > .dropdown-toggle {
+  color: #3e2723;
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+/* Hover = green */
+nav .dropdown:hover > .dropdown-toggle,
+nav .dropdown > .dropdown-toggle:hover {
+  color: #42b983;
+}
+
+/* Optional: focus for accessibility */
+nav .dropdown > .dropdown-toggle:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;      /* menu touches the trigger, no dead zone */
+  left: 0;
+  background: white;
+  border: 1px solid #eee;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  list-style: none;
+  padding: 0.5rem 0;
+  margin: 0;      /* no gap = no hover flicker */
+  min-width: 180px;
+  z-index: 2000;
+  text-align: left;
+}
+
+/* Show only while hovered (prevents sticking) */
+.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.dropdown-menu li { padding: 0; }
+
+.dropdown-menu a {
+  display: block;
+  padding: 0.55rem 1rem;
+  color: #72a2e4;
+  font-size: 1.05rem;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.dropdown-menu a:hover {
+  background-color: #f5f5f5;
   color: #42b983;
 }
 
 /* Main content area */
 .main-content {
   flex: 1;
-  padding-top: 0; /* Remove top padding since PageHeader is now sticky */
-  /* padding-bottom: 40px; */
+  padding-top: 0;
 }
 
 /* Ensure the first element in main doesn't have extra top margin */
@@ -180,20 +279,17 @@ nav a.router-link-exact-active {
   margin-top: 0;
 }
 
+/* Footer */
 footer {
   padding-bottom: 20px;
   text-align: center;
-  margin-top: auto; /* Push the footer to the bottom */
+  margin-top: auto;
 }
 
 .footer-content {
   display: flex;
-  justify-content: center; /* Center content horizontally */
-  align-items: center; /* Center content vertically */
-  gap: 20px; /* Space between footer elements */
-}
-
-.footer-content svg { /* Style the Font Awesome icon */
-  color: #555; /* Example icon color */
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
 }
 </style>

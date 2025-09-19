@@ -12,6 +12,18 @@ export default defineConfig({
     target: 'esnext'
   },
   server: {
+    host: '0.0.0.0',
+    port: 3001,
+    strictPort: true,
+    hmr: {
+      host: 'localhost',
+      port: 3001,
+      protocol: 'ws',
+      overlay: true
+    },
+    watch: {
+      usePolling: true
+    },
     proxy: {
       '/api': 'http://localhost:3000'  // Match backend server port
     }
