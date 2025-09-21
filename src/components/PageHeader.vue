@@ -74,7 +74,7 @@ const route = useRoute();
 .header-section {
   display: flex;
   align-items: center;
-  height: 60px;
+  height: 75px;
   box-sizing: border-box;
   padding: 0;
   /* padding: 5px 0 0 0; */
@@ -96,6 +96,9 @@ const route = useRoute();
   width: 75%;
   flex: 0 0 60%;
   padding: 0 17px;
+  /* text-transform: uppercase;
+  letter-spacing: 1px; */
+  
 }
 
 .services-section {
@@ -112,7 +115,7 @@ const route = useRoute();
   margin: 0;
   /* font-size: 1rem; */
   width: 100%;
-  line-height: 1;
+  line-height: 1.2;
   color: #3e2723;
   text-align: inherit;
   font-family: var(--font-gotham);

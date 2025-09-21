@@ -125,7 +125,7 @@ p, span, div, a, button, input, textarea, select, label {
 .logo-container {
   margin-top: 15px;
   width: 15%;
-  padding-left: 25px;
+  padding-left: 35px;
   /* display: flex;
   align-items: center; */
 }

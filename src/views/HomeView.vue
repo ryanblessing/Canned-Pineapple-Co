@@ -189,12 +189,12 @@ const fetchFolders = async () => {
   margin: 0;
   color: #3e2723;
   font-size: 35px;
-  font-weight: 600;
+  /* font-weight: 600; */
   text-align: center;
   text-transform: uppercase;
   line-height: 1.2;
+  padding: 0.5rem 0.75rem;
   /* letter-spacing: 2px; */
-  padding: 0.25rem 0.5rem;
   /* font-weight: 500; */
   font-family: var(--font-gotham-medium);
 }
