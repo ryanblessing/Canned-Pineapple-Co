@@ -31,7 +31,7 @@ export default {
   padding: 10px; */
 }
 .header-border {
-  border-top: 3px solid #e0e0e0eb;
+  border-top: .18rem solid #3e2723;
   margin: 0 auto;
   width: 100%;
 }
