@@ -111,8 +111,8 @@ const fetchFolders = async () => {
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* exactly three columns */
-  gap: 1rem;
-  padding-top: .85rem;
+  gap: 1.15rem;
+  padding-top: 1.15rem;
   padding-bottom: 0.5rem;
 }
 

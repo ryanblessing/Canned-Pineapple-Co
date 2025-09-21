@@ -82,7 +82,7 @@ const year = new Date().getFullYear()
 
 body {
   margin: 0;
-  padding: 0 50px 0 50px;
+  padding: 0 90px 0 90px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
