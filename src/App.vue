@@ -149,6 +149,8 @@ p, span, div, a, button, input, textarea, select, label {
   display: flex;
   justify-content: center;
   align-items: center;
+  padding-left: 75px;
+  /* padding-top: 15px; */
 }
 
 /* Navigation */

@@ -2,8 +2,8 @@
     <div v-if="$route.name !== 'about' || $route.name !== 'contact'" class="header-content">
       <slot>
         <template v-if="$route.name === 'home'">
-          <p class="header-text">
-            A CREATIVE STUDIO FOCUSED IN SIGN PAINTINGS, MURALS, VISUAL ART AND BRAND DESIGN
+          <p class="home-header-text">
+            A CREATIVE STUDIO FOCUSED IN SIGN PAINTING, MURALS, VISUAL ART AND BRAND DESIGN
           </p>
         </template>
         <template v-else-if="$route.name === 'folder'">
@@ -111,6 +111,19 @@ const route = useRoute();
 .header-text {
   margin: 0;
   /* font-size: 1rem; */
+  width: 100%;
+  line-height: 1;
+  color: #3e2723;
+  text-align: inherit;
+  font-family: var(--font-gotham);
+  font-weight: 400;
+  /* letter-spacing: 0.5px; */
+  text-transform: uppercase;
+}
+
+.home-header-text {
+  margin: 0;
+  font-size: 21px;
   width: 100%;
   line-height: 1;
   color: #3e2723;
