@@ -187,6 +187,8 @@ const fetchFolders = async () => {
 /* Title: black, centered */
 .folder-title {
   margin: 0;
+  margin-left: 1rem;
+  margin-right: 1rem;
   color: #3e2723;
   font-size: 35px;
   /* font-weight: 600; */
