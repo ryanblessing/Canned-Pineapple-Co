@@ -8,23 +8,18 @@
           class="project-card"
         >
           <div class="card-container">
-            <!-- Link to the folder this image belongs to -->
-            <router-link
-              v-if="img.folder?.path"
-              :to="`/folder/${encodeURIComponent(img.folder.path)}`"
-              class="folder-link"
-            >
-              <!-- same square tile as homepage, no overlay/text -->
+            <!-- Non-clickable square tile -->
+            <div class="tile-box">
               <v-card class="card-front" flat>
                 <v-img
-                  :src="img.thumb_url || img.url || '/placeholder.jpg'"
-                  height="600"
+                  :src="thumbSrc(img)"
+                  height="100%"
                   cover
                   class="folder-thumbnail"
                   decoding="async"
                 />
               </v-card>
-            </router-link>
+            </div>
           </div>
         </div>
       </div>
@@ -57,13 +52,24 @@ const images = ref([])
 const loading = ref(true)
 const error = ref(null)
 
+function thumbSrc(img) {
+  return img.display || img.thumb || img.thumb_url || img.url || '/placeholder.jpg'
+}
+
 async function fetchCategory() {
   loading.value = true
   error.value = null
   images.value = []
+
   try {
-    const cat = encodeURIComponent(route.params.category)
-    const res = await fetch(`/api/dropbox/by-category?category=${cat}`)
+    const cat = String(route.params.category || '').trim()
+    if (!cat) throw new Error('Missing category')
+
+    // Use /by-category; we do NOT use any project_folder or linking logic here
+    const res = await fetch(`/api/dropbox/by-category?category=${encodeURIComponent(cat)}`, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     images.value = Array.isArray(data.images) ? data.images : []
@@ -80,15 +86,13 @@ onMounted(fetchCategory)
 </script>
 
 <style scoped>
-/* Same grid/tiles as homepage, but no overlay text */
-
 /* Container */
 .home-container {
   padding: 0;
   margin: 0;
 }
 
-/* Grid identical to homepage */
+/* Grid: 3 across, square tiles */
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -98,29 +102,26 @@ onMounted(fetchCategory)
 
 .project-card { }
 
-.folder-link {
-  text-decoration: none;
-  display: block;
-  position: relative;
-  overflow: hidden;
-  border-radius: 0;
-  height: 0;
-  padding-bottom: 100%; /* Square tiles */
-}
-
 .card-container {
   position: relative;
   width: 100%;
   height: 0;
-  padding-bottom: 100%;
+  padding-bottom: 100%; /* perfect square */
   margin: 0;
   overflow: hidden;
+}
+
+/* Non-clickable tile wrapper */
+.tile-box {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* ensures no clicks */
 }
 
 .card-front {
   position: absolute;
   inset: 0;
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -134,12 +135,8 @@ onMounted(fetchCategory)
   inset: 0;
   width: 100%;
   height: 100%;
-  transition: opacity 0.3s ease;
   border-radius: 0 !important;
-}
-
-.folder-link:hover .folder-thumbnail {
-  opacity: 0.8;
+  object-fit: cover;
 }
 
 /* Loading / error */
@@ -154,5 +151,17 @@ onMounted(fetchCategory)
   text-align: center;
   padding: 2rem;
   color: #ff4444;
+}
+
+/* Responsive tweaks */
+@media (max-width: 960px) {
+  .project-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

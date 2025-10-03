@@ -1,16 +1,22 @@
+// routes/dropbox.js — fast cards, negotiated thumbnails (AVIF/WEBP/JPEG), correct gallery sorting + orientation
 const express = require('express');
 const axios = require('axios');
+const https = require('https');
+const crypto = require('crypto');
 require('dotenv').config();
 
-// Optional relaxed parser fallback (handles comments, trailing commas, unquoted keys, single quotes)
-let JSON5 = null;
-try { JSON5 = require('json5'); } catch (_) {}
+// Optional relaxed JSON fallback
+let JSON5 = null; try { JSON5 = require('json5'); } catch {}
+// Optional image transcoder (for AVIF/WEBP). If missing, we fall back to JPEG.
+let Sharp = null; try { Sharp = require('sharp'); } catch {}
 
 const router = express.Router();
-let accessToken = null;
 
-/* --------------------------- light in-memory cache --------------------------- */
-// super simple per-process cache; for prod use Redis or similar
+/* --------------------------------- axios --------------------------------- */
+const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 50, maxFreeSockets: 10 });
+const AX = axios.create({ timeout: 15000, httpsAgent: keepAliveAgent });
+
+/* ------------------------------- tiny caches ------------------------------ */
 const _CACHE = new Map();
 const _now = () => Date.now();
 function _get(key) {
@@ -19,42 +25,43 @@ function _get(key) {
   if (x.expires && x.expires < _now()) { _CACHE.delete(key); return null; }
   return x.value;
 }
-function _set(key, value, ttlMs = 10 * 60 * 1000) { // default 10 minutes
-  _CACHE.set(key, { value, expires: _now() + ttlMs });
+function _set(key, value, ttlMs = 10 * 60 * 1000) { _CACHE.set(key, { value, expires: _now() + ttlMs }); }
+
+// Per-folder "project card" cache: {card, staleAfter, building}
+const CARD_CACHE = new Map(); // key = folder.path_lower
+const CARD_TTL_MS = 30 * 60 * 1000;            // fresh 30m
+const CARD_STALE_GRACE_MS = 4 * 60 * 60 * 1000; // serve stale up to 4h while revalidating
+
+/* ----------------------------- concurrency caps --------------------------- */
+function limiter(max = 6) {
+  let active = 0, q = [];
+  return async fn => {
+    if (active >= max) await new Promise(r => q.push(r));
+    active++;
+    try { return await fn(); }
+    finally { active--; const n = q.shift(); if (n) n(); }
+  };
 }
+const limitRPC = limiter(6);
+const limitContent = limiter(6);
 
-/* --------------------------- helpers (sorting/parsing) --------------------------- */
-
-// Gremlin catchers
-const BAD_SPACES = /[\u2000-\u200A\u00A0\u202F\u205F\u3000]/g; // EN/EM/THIN/NBSP/etc.
-const BOM = /\uFEFF/g; // byte-order mark
+/* --------------------------------- helpers -------------------------------- */
+const BAD_SPACES = /[\u2000-\u200A\u00A0\u202F\u205F\u3000]/g;
+const BOM = /\uFEFF/g;
 
 function cleanJsonString(s) {
   let txt = String(s)
     .replace(BOM, '')
     .replace(BAD_SPACES, ' ')
-    .replace(/\r\n?/g, '\n');
-
-  // feet/inches → prime/double-prime
-  txt = txt
+    .replace(/\r\n?/g, '\n')
     .replace(/(\d)\s*[’′]/g, '$1\u2032')
-    .replace(/(\d)\s*[”″]/g, '$1\u2033');
-
-  // smart quotes → straight
-  txt = txt.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-
-  // trim inside quoted values
-  txt = txt.replace(/:\s*"([^"]*?)\s*"(?!\s*:)/g, (_m, v) => `: "${v.trim()}"`);
-
-  // escape stray " inside value strings
-  txt = txt.replace(/(:\s*")((?:[^"\\]|\\.)*)(")/g, (_m, open, body, close) => {
-    const safeBody = body.replace(/(?<!\\)"/g, '\\"');
-    return open + safeBody + close;
-  });
-
+    .replace(/(\d)\s*[”″]/g, '$1\u2033')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/:\s*"([^"]*?)\s*"(?!\s*:)/g, (_m, v) => `: "${v.trim()}"`)
+    .replace(/(:\s*")((?:[^"\\]|\\.)*)(")/g, (_m, open, body, close) => open + body.replace(/(?<!\\)"/g, '\\"') + close);
   return txt.trim();
 }
-
 function precleanStructuralIssues(txt) {
   return txt
     .replace(/(^|\s)\/\/[^\n]*/g, '')
@@ -62,19 +69,15 @@ function precleanStructuralIssues(txt) {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/,\s*([}\]])/g, '$1');
 }
-
 function safeParseJson(text, label = 'unknown.json') {
-  try {
-    return JSON.parse(text);
-  } catch {
+  try { return JSON.parse(text); }
+  catch {
     const cleaned = cleanJsonString(text);
-    try {
-      return JSON.parse(cleaned);
-    } catch {
+    try { return JSON.parse(cleaned); }
+    catch {
       const pre = precleanStructuralIssues(cleaned);
-      try {
-        return JSON.parse(pre);
-      } catch (e3) {
+      try { return JSON.parse(pre); }
+      catch (e3) {
         if (JSON5) { try { return JSON5.parse(pre); } catch {} }
         console.warn(`❌ Still failed to parse ${label}.`);
         throw e3;
@@ -82,439 +85,123 @@ function safeParseJson(text, label = 'unknown.json') {
     }
   }
 }
-
 function naturalCompare(a, b) {
   return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
 }
-
-// STRONG numeric parse (handles thin spaces/odd chars)
 function toOrderNum(v) {
   if (v === null || v === undefined) return Infinity;
-  const s = String(v).trim().replace(/[^\d-]/g, ''); // digits/minus only
+  const s = String(v).trim().replace(/[^\d-]/g, '');
   if (!s) return Infinity;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : Infinity;
 }
+const isImage = n => /\.(jpe?g|png|gif|webp)$/i.test(n || '');
+const isJson  = n => /\.json$/i.test(n || '');
+const base = n => (n || '').replace(/\.[^.]+$/, '').toLowerCase();
 
-const isImage = (name) => /\.(jpe?g|png|gif|webp)$/i.test(name || '');
-const isJson  = (name) => /\.json$/i.test(name || '');
-const base = (name) => (name || '').replace(/\.[^.]+$/, '').toLowerCase();
+/* ----------------------------- Dropbox token ------------------------------ */
+let accessToken = null;
+let _refreshing = null;
 
-/* --------------------------- dropbox list: fetch ALL entries --------------------------- */
+// single-process global guards (survive duplicate requires)
+const INIT_FLAG_KEY = '__DROPBOX_ROUTER_INIT__';
+const TIMER_KEY     = '__DROPBOX_TOKEN_TIMER__';
 
+async function refreshAccessToken() {
+  if (_refreshing) return _refreshing;
+  _refreshing = (async () => {
+    try {
+      const resp = await AX.post('https://api.dropboxapi.com/oauth2/token', null, {
+        params: {
+          grant_type: 'refresh_token',
+          refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
+          client_id: process.env.DROPBOX_CLIENT_ID,
+          client_secret: process.env.DROPBOX_CLIENT_SECRET,
+        },
+      });
+      const newToken = resp.data.access_token;
+      if (newToken && newToken !== accessToken) {
+        accessToken = newToken;
+        console.log('🔁 Dropbox access token refreshed');
+      }
+    } catch (err) {
+      console.error('❌ Token refresh failed:', err.response?.data || err.message);
+    } finally {
+      _refreshing = null;
+    }
+  })();
+  return _refreshing;
+}
+async function ensureAccessToken() {
+  if (accessToken) return;
+  await refreshAccessToken();
+}
+async function initAuthOnce() {
+  if (global[INIT_FLAG_KEY]) return;
+  global[INIT_FLAG_KEY] = true;
+  await refreshAccessToken();
+  if (!global[TIMER_KEY]) {
+    global[TIMER_KEY] = setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
+  }
+}
+initAuthOnce();
+
+/* ------------------------------ Dropbox list ------------------------------ */
 async function listFolderAll(path_lower) {
+  await ensureAccessToken();
   const key = `lf:${path_lower}`;
   const cached = _get(key);
   if (cached) return cached;
 
+  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
   const all = [];
-  let resp = await axios.post(
+  let resp = await limitRPC(() => AX.post(
     'https://api.dropboxapi.com/2/files/list_folder',
     { path: path_lower, recursive: false, include_non_downloadable_files: false },
-    { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-  );
+    { headers }
+  ));
   all.push(...(resp.data?.entries || []));
   while (resp.data?.has_more) {
-    resp = await axios.post(
+    resp = await limitRPC(() => AX.post(
       'https://api.dropboxapi.com/2/files/list_folder/continue',
       { cursor: resp.data.cursor },
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-    );
+      { headers }
+    ));
     all.push(...(resp.data?.entries || []));
   }
 
-  _set(key, all, 5 * 60 * 1000); // cache 5 min
+  _set(key, all, 3 * 60 * 1000);
   return all;
 }
 
-/* --------------------------- filename extraction from linked_image --------------------------- */
-
-/**
- * Return EXACT filename (lowercased) from a linked_image URL, including its extension.
- * Examples it handles:
- *   .../Queens?preview=nashville-mural-foo.jpg
- *   .../some/path/nashville-mural-foo.jpg
- */
+/* -------------------------- filename from sidecar -------------------------- */
 function filenameFromLinkedImage(link) {
   if (!link || typeof link !== 'string') return null;
   try {
-    // Normalize spaces, decode, strip anchors
     let decoded = decodeURIComponent(String(link).replace(BAD_SPACES, ' ')).trim();
     decoded = decoded.split('#')[0];
-
-    // Prefer ?preview=xyz.jpg
     const qIndex = decoded.indexOf('?');
     if (qIndex !== -1) {
       const q = decoded.slice(qIndex + 1);
       const params = new URLSearchParams(q);
       const pv = params.get('preview');
-      if (pv && /\.[a-z0-9]{3,4}$/i.test(pv)) {
-        return pv.trim().toLowerCase();
-      }
+      if (pv && /\.[a-z0-9]{3,4}$/i.test(pv)) return pv.trim().toLowerCase();
     }
-
-    // Fallback: last path segment
     const last = decoded.split('/').pop() || '';
     const clean = last.split('?')[0].trim().toLowerCase();
-    if (/\.[a-z0-9]{3,4}$/i.test(clean)) return clean;
-    return null;
-  } catch {
-    return null;
-  }
+    return /\.[a-z0-9]{3,4}$/i.test(clean) ? clean : null;
+  } catch { return null; }
 }
 
-/* --------------------------- ORDER mapping built by EXACT filename --------------------------- */
+/* -------------------- order+orientation index from sidecars ---------------- */
+function normalizeOrientation(raw) {
+  const v = String(raw || '').trim().toLowerCase();
+  if (v === 'horizontal' || v === 'landscape') return 'horizontal';
+  if (v === 'square') return 'square';
+  return null;
+}
 
 async function buildOrderIndexFromSidecars(entries) {
-  const jsonSidecars = (entries || [])
-    .filter(e => e['.tag'] === 'file' && isJson(e.name) && e.name !== '_metadata.json');
-
-  const imageFiles = (entries || [])
-    .filter(e => e['.tag'] === 'file' && isImage(e.name));
-
-  // quick lookup by lowercase filename and by basename
-  const byLowerName = new Map();
-  const byBase = new Map(); // basename -> array of entries
-  for (const img of imageFiles) {
-    const lower = (img.name || '').toLowerCase();
-    const b = base(lower);
-    byLowerName.set(lower, img);
-    if (!byBase.has(b)) byBase.set(b, []);
-    byBase.get(b).push(img);
-  }
-
-  const ordByName = Object.create(null); // name.ext -> order
-  const zeroNames = new Set();           // name.ext where order===0
-
-  await Promise.all(jsonSidecars.map(async (f) => {
-    try {
-      const dl = await axios.post(
-        'https://content.dropboxapi.com/2/files/download',
-        '',
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Dropbox-API-Arg': JSON.stringify({ path: f.path_lower }),
-            'Content-Type': 'text/plain',
-          },
-          responseType: 'text',
-          transformResponse: [d => d],
-          validateStatus: s => s < 500,
-        }
-      );
-      if (dl.status !== 200) {
-        console.warn('⚠️ Sidecar download failed:', f.name, dl.status);
-        return;
-      }
-      const meta = safeParseJson(dl.data, f.name);
-      const ord = toOrderNum(meta?.order_flag);
-
-      // 1) Try exact filename from linked_image
-      let exact = filenameFromLinkedImage(meta?.linked_image);
-
-      // 2) Fallback to any image that shares the sidecar basename
-      if (!exact) {
-        const sidecarBase = base(f.name.toLowerCase());
-        const candidates = byBase.get(sidecarBase) || [];
-        if (candidates.length) {
-          for (const cand of candidates) {
-            const nameLower = cand.name.toLowerCase();
-            ordByName[nameLower] = ord;
-            if (ord === 0) zeroNames.add(nameLower);
-          }
-          return;
-        }
-      }
-
-      if (exact) {
-        if (byLowerName.has(exact)) {
-          ordByName[exact] = ord;
-          if (ord === 0) zeroNames.add(exact);
-        } else {
-          // Final fallback: map all that share the basename
-          const b = base(exact);
-          const candidates = byBase.get(b) || [];
-          for (const cand of candidates) {
-            const nameLower = cand.name.toLowerCase();
-            ordByName[nameLower] = ord;
-            if (ord === 0) zeroNames.add(nameLower);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('⚠️ Sidecar parse failed:', f.name, err.response?.data || err.message);
-    }
-  }));
-
-  return { ordByName, zeroNames };
-}
-
-/* --------------------------- Sorting & Excluding by exact filename --------------------------- */
-
-function sortAndFilterImagesByName(entries, ordByName, zeroNames) {
-  const imgs = (entries || [])
-    .filter(e => e['.tag'] === 'file' && isImage(e.name))
-    .filter(e => !zeroNames.has((e.name || '').toLowerCase()));
-
-  imgs.sort((a, b) => {
-    const an = (a.name || '').toLowerCase();
-    const bn = (b.name || '').toLowerCase();
-    const ao = Object.prototype.hasOwnProperty.call(ordByName, an) ? ordByName[an] : Infinity;
-    const bo = Object.prototype.hasOwnProperty.call(ordByName, bn) ? ordByName[bn] : Infinity;
-    if (ao !== bo) return ao - bo;
-    return naturalCompare(a.name, b.name);
-  });
-
-  return imgs;
-}
-
-/* --------------------------- Thumbnail (project card) from order===0 --------------------------- */
-
-async function pickThumbnailFromZero(entries, zeroNames, folderName) {
-  const zeroImg = (entries || []).find(e =>
-    e['.tag'] === 'file' &&
-    isImage(e.name) &&
-    zeroNames.has((e.name || '').toLowerCase())
-  );
-  if (!zeroImg) return null;
-
-  try {
-    const linkResponse = await axios.post(
-      'https://api.dropboxapi.com/2/files/get_temporary_link',
-      { path: zeroImg.path_lower || zeroImg.path_display },
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-    );
-    return linkResponse.data?.link || null;
-  } catch (err) {
-    console.warn(`⚠️ Could not get zero-order thumbnail for ${folderName}:`, err.response?.data || err.message);
-    return null;
-  }
-}
-
-/* --------------------------------- auth refresh -------------------------------- */
-
-async function refreshAccessToken() {
-  try {
-    const response = await axios.post('https://api.dropboxapi.com/oauth2/token', null, {
-      params: {
-        grant_type: 'refresh_token',
-        refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
-        client_id: process.env.DROPBOX_CLIENT_ID,
-        client_secret: process.env.DROPBOX_CLIENT_SECRET,
-      },
-    });
-    accessToken = response.data.access_token;
-    console.log('🔁 Dropbox access token refreshed');
-  } catch (err) {
-    console.error('❌ Token refresh failed:', err.response?.data || err.message);
-  }
-}
-refreshAccessToken();
-setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
-
-/* --------------------------- GET /api/dropbox/website-photos --------------------------- */
-
-router.get('/website-photos', async (req, res) => {
-  try {
-    const rootEntries = await listFolderAll('');
-    const websitePhotosFolder = rootEntries.find(
-      entry => entry.name === 'Website Photos' && entry['.tag'] === 'folder'
-    );
-    if (!websitePhotosFolder) {
-      return res.status(404).json({ error: 'Website Photos folder not found' });
-    }
-    console.log('📂 Found Website Photos folder');
-
-    const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
-    const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
-    console.log(`📁 Found ${projectFolders.length} project folders`);
-
-    const projects = await Promise.all(projectFolders.map(async (folder) => {
-      try {
-        const entries = await listFolderAll(folder.path_lower);
-
-        // _metadata.json
-        const metadataFile = entries.find(e => e.name === '_metadata.json' && e['.tag'] === 'file');
-        let metadata = null;
-        if (metadataFile) {
-          try {
-            const key = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
-            const cachedMeta = _get(key);
-            if (cachedMeta) {
-              metadata = cachedMeta;
-            } else {
-              const metadataResponse = await axios.post(
-                'https://content.dropboxapi.com/2/files/download',
-                '',
-                {
-                  headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
-                    'Content-Type': 'text/plain',
-                  },
-                  responseType: 'text',
-                  transformResponse: [d => d],
-                  validateStatus: s => s < 500,
-                }
-              );
-              if (metadataResponse.status === 200) {
-                metadata = safeParseJson(metadataResponse.data, metadataFile.name);
-                _set(key, metadata, 10 * 60 * 1000);
-              }
-            }
-            console.log(`✅ Parsed metadata for ${folder.name}`);
-          } catch (err) {
-            const body = err?.response?.data;
-            const summary = body?.error_summary || body || err.message;
-            console.warn(`⚠️ Could not parse metadata for ${folder.name}:`, summary);
-          }
-        } else {
-          console.warn(`ℹ️ No _metadata.json found in ${folder.name}`);
-        }
-
-        // Build exact filename index for sidecars
-        const { ordByName, zeroNames } = await buildOrderIndexFromSidecars(entries);
-
-        // Prefer project-card thumbnail from order=0
-        let thumbnail = await pickThumbnailFromZero(entries, zeroNames, folder.name);
-
-        // Fallback: first non-zero ordered image
-        if (!thumbnail) {
-          const orderedImages = sortAndFilterImagesByName(entries, ordByName, zeroNames);
-          const first = orderedImages[0];
-          if (first) {
-            try {
-              const linkResponse = await axios.post(
-                'https://api.dropboxapi.com/2/files/get_temporary_link',
-                { path: first.path_lower || first.path_display },
-                { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-              );
-              thumbnail = linkResponse.data.link;
-            } catch (err) {
-              console.warn(`⚠️ Could not get fallback thumbnail for ${folder.name}:`, err.response?.data || err.message);
-            }
-          }
-        }
-
-        const orderNumeric = toOrderNum(metadata?.order_flag);
-        return {
-          id: folder.id,
-          name: folder.name,
-          path: folder.path_display,
-          thumbnail,
-          metadata,
-          order: Number.isFinite(orderNumeric) ? orderNumeric : null,
-        };
-      } catch (err) {
-        console.error(`❌ Error processing folder ${folder.name}:`, err.message);
-        return null;
-      }
-    }));
-
-    const validProjects = projects.filter(Boolean);
-    validProjects.sort((a, b) => {
-      const ao = toOrderNum(a?.metadata?.order_flag);
-      const bo = toOrderNum(b?.metadata?.order_flag);
-      if (ao !== bo) return ao - bo;
-      return naturalCompare(a?.name, b?.name);
-    });
-
-    res.json(validProjects);
-  } catch (err) {
-    console.error('❌ Failed to fetch website photos:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Unable to fetch website photos', details: err.message });
-  }
-});
-
-/* --------------------------- GET /api/dropbox/files (project gallery) --------------------------- */
-
-router.get('/files', async (req, res) => {
-  try {
-    const { path: folderPath = '', debug } = req.query;
-
-    // a) Fetch all entries in the folder
-    const entries = await listFolderAll(folderPath);
-
-    // b) Build exact filename → order map (+ zero set)
-    const { ordByName, zeroNames } = await buildOrderIndexFromSidecars(entries);
-
-    // c) Gather image files and compute their order
-    const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
-
-    const annotated = imageEntries
-      .map(e => {
-        const nameLower = (e.name || '').toLowerCase();
-        const ord = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
-          ? ordByName[nameLower]
-          : Infinity;
-        const isZero = zeroNames.has(nameLower);
-        return { entry: e, nameLower, ord, isZero };
-      })
-      .filter(x => !x.isZero) // exclude order 0
-      .sort((a, b) => {
-        if (a.ord !== b.ord) return a.ord - b.ord;  // 1,2,3,... then Infinity
-        return naturalCompare(a.entry.name, b.entry.name);
-      });
-
-    // d) Build response in this exact sorted order
-    const images = await Promise.all(
-      annotated.map(async ({ entry, ord }) => {
-        try {
-          const lr = await axios.post(
-            'https://api.dropboxapi.com/2/files/get_temporary_link',
-            { path: entry.path_display || entry.path_lower },
-            { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-          );
-          return {
-            url: lr.data.link,
-            name: entry.name,
-            path: entry.path_display || entry.path_lower,
-            size: entry.size,
-            client_modified: entry.client_modified,
-            order: Number.isFinite(ord) ? ord : null, // 1,2,3,… or null
-            is_zero: false, // since we filtered above, but keep an explicit flag
-          };
-        } catch (err) {
-          console.error('⚠️ Error getting link for file:', entry.name, err.response?.data || err.message);
-          return null;
-        }
-      })
-    );
-
-    // e) Optional debug payload to see exactly what the server thinks
-    if (String(debug) === '1') {
-      const allImageNames = imageEntries.map(e => e.name);
-      return res.json({
-        images: images.filter(Boolean),
-        _debug: {
-          ordByName_sample: Object.fromEntries(Object.entries(ordByName).slice(0, 25)),
-          zeroNames: Array.from(zeroNames),
-          allImageNames,
-          sortedNames: annotated.map(x => ({ name: x.entry.name, ord: Number.isFinite(x.ord) ? x.ord : null })),
-        }
-      });
-    }
-
-    res.json({ images: images.filter(Boolean) });
-  } catch (err) {
-    console.error('❌ Failed to fetch files:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Unable to fetch files', details: err.message });
-  }
-});
-
-/* --------------------------- HELPER: meta index incl. category (cached) --------------------------- */
-/**
- * Builds:
- *  - metaByName: { 'file.jpg': { order, category } }
- *  - zeroNames: Set of names where order==0
- * Uses linked_image exact filename OR basename fallback, same as your order index.
- * Cached per-folder.
- */
-async function buildMetaIndexFromSidecarsCached(entries, folderKey) {
-  const ck = `metaix:${folderKey}`;
-  const hit = _get(ck);
-  if (hit) return hit;
-
   const jsonSidecars = (entries || [])
     .filter(e => e['.tag'] === 'file' && isJson(e.name) && e.name !== '_metadata.json');
 
@@ -531,14 +218,14 @@ async function buildMetaIndexFromSidecarsCached(entries, folderKey) {
     byBase.get(b).push(img);
   }
 
-  const metaByName = Object.create(null);
+  const ordByName = Object.create(null);
+  const orientationByName = Object.create(null); // NEW
   const zeroNames = new Set();
 
-  await Promise.all(jsonSidecars.map(async (f) => {
+  await Promise.all(jsonSidecars.map(f => limitContent(async () => {
     try {
-      const dl = await axios.post(
-        'https://content.dropboxapi.com/2/files/download',
-        '',
+      const dl = await AX.post(
+        'https://content.dropboxapi.com/2/files/download', '',
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -550,65 +237,394 @@ async function buildMetaIndexFromSidecarsCached(entries, folderKey) {
           validateStatus: s => s < 500,
         }
       );
-      if (dl.status !== 200) return;
-
+      if (dl.status !== 200) { console.warn('⚠️ Sidecar download failed:', f.name, dl.status); return; }
       const meta = safeParseJson(dl.data, f.name);
       const ord = toOrderNum(meta?.order_flag);
-      const category = (meta?.category || '').toString().trim();
-      const exact = filenameFromLinkedImage(meta?.linked_image);
+      const orient = normalizeOrientation(meta?.orientation);
 
-      const applyTo = (arr) => {
-        for (const cand of arr) {
-          const key = cand.name.toLowerCase();
-          metaByName[key] = { order: ord, category };
-          if (ord === 0) zeroNames.add(key);
+      let exact = filenameFromLinkedImage(meta?.linked_image);
+      const assign = (candArr) => {
+        for (const cand of candArr) {
+          const nameLower = cand.name.toLowerCase();
+          ordByName[nameLower] = ord;
+          if (orient) orientationByName[nameLower] = orient;
+          if (ord === 0) zeroNames.add(nameLower);
         }
       };
 
-      if (exact && byLowerName.has(exact)) {
-        metaByName[exact] = { order: ord, category };
+      if (!exact) {
+        assign(byBase.get(base(f.name.toLowerCase())) || []);
+        return;
+      }
+      if (byLowerName.has(exact)) {
+        ordByName[exact] = ord;
+        if (orient) orientationByName[exact] = orient;
         if (ord === 0) zeroNames.add(exact);
-      } else if (exact) {
-        const b = base(exact);
-        applyTo(byBase.get(b) || []);
       } else {
-        const sidecarBase = base(f.name.toLowerCase());
-        applyTo(byBase.get(sidecarBase) || []);
+        assign(byBase.get(base(exact)) || []);
       }
     } catch (err) {
-      console.warn('⚠️ Sidecar parse failed (meta index):', f.name, err.response?.data || err.message);
+      console.warn('⚠️ Sidecar parse failed:', f.name, err.response?.data || err.message);
     }
-  }));
+  })));
 
-  const out = { metaByName, zeroNames };
-  _set(ck, out, 10 * 60 * 1000); // cache 10 min
-  return out;
+  return { ordByName, zeroNames, orientationByName };
 }
 
-/* --------------------------- helper: temp link cache --------------------------- */
-async function getTempLinkCached(path_lower) {
-  const k = `tl:${path_lower}`;
-  const hit = _get(k);
+function sortAndFilterImagesByName(entries, ordByName, zeroNames) {
+  const imgs = (entries || [])
+    .filter(e => e['.tag'] === 'file' && isImage(e.name))
+    .filter(e => !zeroNames.has((e.name || '').toLowerCase()));
+  imgs.sort((a, b) => {
+    const an = (a.name || '').toLowerCase();
+    const bn = (b.name || '').toLowerCase();
+    const ao = Object.prototype.hasOwnProperty.call(ordByName, an) ? ordByName[an] : Infinity;
+    const bo = Object.prototype.hasOwnProperty.call(ordByName, bn) ? ordByName[bn] : Infinity;
+    if (ao !== bo) return ao - bo;
+    return naturalCompare(a.name, b.name);
+  });
+  return imgs;
+}
+
+/* =========================== thumbnail proxy ============================== */
+const DEFAULT_THUMB = 'w640h480';
+
+function makeThumbUrl(path_lower, size = DEFAULT_THUMB) {
+  const b64 = Buffer.from(path_lower, 'utf8').toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return `/api/dropbox/thumb/${b64}?s=${encodeURIComponent(size)}`;
+}
+
+// Fetch a small JPEG from Dropbox (base), cache per (size, path)
+async function fetchBaseJpeg(path_lower, size = DEFAULT_THUMB) {
+  await ensureAccessToken();
+  const key = `thumb:jpeg:${size}:${path_lower}`;
+  const hit = _get(key);
   if (hit) return hit;
-  const resp = await axios.post(
-    'https://api.dropboxapi.com/2/files/get_temporary_link',
-    { path: path_lower },
-    { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-  );
-  const link = resp.data?.link || null;
-  // Temp links last ~4 hours; cache ~3.5h to be safe
-  _set(k, link, 3.5 * 60 * 60 * 1000);
-  return link;
+
+  const headers  = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+  const resp = await limitContent(() => AX.post(
+    'https://content.dropboxapi.com/2/files/get_thumbnail_v2',
+    {
+      resource: { '.tag': 'path', path: path_lower },
+      format: { '.tag': 'jpeg' },
+      size:   { '.tag': size },
+      mode:   { '.tag': 'strict' }
+    },
+    { headers, responseType: 'arraybuffer', validateStatus: s => s < 500 }
+  ));
+  if (resp.status !== 200 || !resp.data) {
+    const e = new Error(`get_thumbnail_v2 ${resp.status}`);
+    e.status = resp.status;
+    throw e;
+  }
+  const buf = Buffer.from(resp.data);
+  _set(key, buf, 3.5 * 60 * 60 * 1000);
+  return buf;
 }
 
-/* --------------------------- GET /api/dropbox/by-category --------------------------- */
-/**
- * Returns ALL images across Website Photos whose sidecar has category=<param>.
- * - Case-insensitive, hyphen-insensitive ("gold-leaf" → "gold leaf")
- * - Excludes order_flag===0
- * - ?debug=1 returns some counts to help diagnose
- * Example: /api/dropbox/by-category?category=signs
- */
+// Convert to AVIF/WEBP if browser supports it and sharp is available
+async function maybeTranscode(buf, wantMime) {
+  if (!Sharp) return { buf, mime: 'image/jpeg' };
+  try {
+    if (wantMime === 'image/avif') {
+      const out = await Sharp(buf).avif({ quality: 45, effort: 3 }).toBuffer();
+      return { buf: out, mime: 'image/avif' };
+    }
+    if (wantMime === 'image/webp') {
+      const out = await Sharp(buf).webp({ quality: 70 }).toBuffer();
+      return { buf: out, mime: 'image/webp' };
+    }
+  } catch {}
+  return { buf, mime: 'image/jpeg' };
+}
+
+function wantMimeFromAccept(accept = '') {
+  const a = String(accept || '').toLowerCase();
+  if (a.includes('image/avif')) return 'image/avif';
+  if (a.includes('image/webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+async function fetchThumbNegotiated(path_lower, size, acceptHdr) {
+  const want = wantMimeFromAccept(acceptHdr);
+  const cacheKey = `thumb:${want}:${size}:${path_lower}`;
+  const hit = _get(cacheKey);
+  if (hit) return { buf: hit, mime: want };
+
+  let base;
+  try {
+    base = await fetchBaseJpeg(path_lower, size);
+  } catch (e) {
+    const fallbacks = [DEFAULT_THUMB, 'w480h320', 'w256h256'];
+    for (const s of fallbacks) {
+      try { base = await fetchBaseJpeg(path_lower, s); break; } catch {}
+    }
+    if (!base) return { buf: null, mime: want };
+  }
+
+  const { buf, mime } = await maybeTranscode(base, want);
+  _set(cacheKey, buf, 3.5 * 60 * 60 * 1000);
+  return { buf, mime };
+}
+
+router.get('/thumb/:b64', async (req, res) => {
+  try {
+    const size = (req.query.s || DEFAULT_THUMB).toString();
+    let b64 = req.params.b64.replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '=';
+    const path_lower = Buffer.from(b64, 'base64').toString('utf8');
+
+    const { buf, mime } = await fetchThumbNegotiated(path_lower, size, req.headers['accept'] || '');
+    if (buf) {
+      const etag = 'W/"' + crypto.createHash('sha1').update(buf).digest('base64').slice(0, 16) + `"`;
+      if (req.headers['if-none-match'] === etag) { res.status(304).end(); return; }
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'public, max-age=14400, stale-while-revalidate=86400');
+      res.setHeader('ETag', etag);
+      res.setHeader('Vary', 'Accept');
+      res.send(buf);
+      return;
+    }
+    await ensureAccessToken();
+    const lr = await AX.post(
+      'https://api.dropboxapi.com/2/files/get_temporary_link',
+      { path: path_lower },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+    );
+    if (lr.data?.link) { res.setHeader('Cache-Control', 'no-store'); res.redirect(302, lr.data.link); }
+    else { res.status(502).end(); }
+  } catch (e) {
+    console.warn('thumb route error:', e.message);
+    res.status(502).end();
+  }
+});
+
+/* =================== FAST project card build & SWR cache ================== */
+async function buildProjectCardFast(folder) {
+  const entries = await listFolderAll(folder.path_lower);
+
+  // _metadata.json (cheap)
+  const metadataFile = entries.find(e => e['.tag'] === 'file' && e.name === '_metadata.json');
+  let metadata = null;
+  if (metadataFile) {
+    try {
+      const key = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
+      const hit = _get(key);
+      if (hit) metadata = hit;
+      else {
+        const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
+          headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }), 'Content-Type': 'text/plain' },
+          responseType: 'text', transformResponse: [d => d], validateStatus: s => s < 500
+        });
+        if (r.status === 200) { metadata = safeParseJson(r.data, metadataFile.name); _set(key, metadata, 10 * 60 * 1000); }
+      }
+    } catch (e) { console.warn('⚠️ metadata parse failed:', folder.name, e.response?.data || e.message); }
+  }
+
+  // First real image (fast thumbnail proxy)
+  const firstImg = (entries || []).find(e => e['.tag'] === 'file' && isImage(e.name));
+  const thumb = firstImg ? makeThumbUrl(firstImg.path_lower || firstImg.path_display, DEFAULT_THUMB) : null;
+
+  const orderNumeric = toOrderNum(metadata?.order_flag);
+  const card = {
+    id: folder.id,
+    name: folder.name,
+    path: folder.path_display,
+    thumbnail: thumb,
+    metadata,
+    order: Number.isFinite(orderNumeric) ? orderNumeric : null,
+  };
+  return { card, entries };
+}
+
+async function refineProjectCardFromSidecars(folder, entries) {
+  try {
+    const { ordByName, zeroNames } = await buildOrderIndexFromSidecars(entries);
+    let chosen = (entries || []).find(e => e['.tag'] === 'file' && isImage(e.name) && zeroNames.has((e.name || '').toLowerCase()));
+    if (!chosen) {
+      const orderedImages = sortAndFilterImagesByName(entries, ordByName, zeroNames);
+      chosen = orderedImages[0];
+    }
+    if (!chosen) return;
+    const p = chosen.path_lower || chosen.path_display;
+    const refinedThumb = makeThumbUrl(p, DEFAULT_THUMB);
+    const cache = CARD_CACHE.get(folder.path_lower);
+    if (!cache) return;
+    if (cache.card?.thumbnail !== refinedThumb) cache.card.thumbnail = refinedThumb;
+  } catch (e) {
+    console.warn('refine sidecars failed:', folder.name, e.message);
+  }
+}
+
+async function getProjectCard(folder) {
+  const key = folder.path_lower;
+  const cached = CARD_CACHE.get(key);
+  const fresh = cached && _now() < cached.staleAfter;
+  if (fresh) return cached.card;
+  if (cached && cached.building) return cached.card;
+
+  CARD_CACHE.set(key, { card: cached?.card || null, staleAfter: _now() + CARD_STALE_GRACE_MS, building: true });
+  const { card, entries } = await buildProjectCardFast(folder).catch(e => {
+    console.error('card build failed:', folder.name, e.message);
+    return { card: cached?.card || null, entries: null };
+  });
+  CARD_CACHE.set(key, { card, staleAfter: _now() + CARD_TTL_MS, building: false });
+
+  if (entries) setTimeout(() => {
+    const rec = CARD_CACHE.get(key);
+    if (rec) rec.building = true;
+    refineProjectCardFromSidecars(folder, entries).finally(() => {
+      const cur = CARD_CACHE.get(key);
+      if (cur) cur.building = false;
+    });
+  }, 0);
+
+  return card;
+}
+
+/* ================================ ROUTES ================================= */
+// Home — fast SWR cards
+router.get('/website-photos', async (req, res) => {
+  try {
+    const rootEntries = await listFolderAll('');
+    const websitePhotosFolder = rootEntries.find(e => e.name === 'Website Photos' && e['.tag'] === 'folder');
+    if (!websitePhotosFolder) return res.status(404).json({ error: 'Website Photos folder not found' });
+
+    const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
+    const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
+
+    const cards = await Promise.all(projectFolders.map(getProjectCard));
+    const valid = cards.filter(Boolean);
+
+    valid.sort((a, b) => {
+      const ao = toOrderNum(a?.metadata?.order_flag);
+      const bo = toOrderNum(b?.metadata?.order_flag);
+      if (ao !== bo) return ao - bo;
+      return naturalCompare(a?.name, b?.name);
+    });
+
+    res.setHeader('X-Card-Cache', 'SWR');
+    res.json(valid);
+  } catch (err) {
+    console.error('❌ Failed to fetch website photos:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Unable to fetch website photos', details: err.message });
+  }
+});
+
+/* --------- Gallery: correct sorting + thumb/display + full-size url ------- */
+router.get('/files', async (req, res) => {
+  try {
+    const { path: folderPath = '', debug } = req.query;
+
+    // helpers for robust ordering
+    const seqFromName = (name = '') => {
+      const m = String(name).match(/(?:^|[^\d])(\d{1,6})(?!\d)/);
+      if (!m) return Infinity;
+      const n = parseInt(m[1], 10);
+      return Number.isFinite(n) ? n : Infinity;
+    };
+    const safeTime = (t) => {
+      const n = Date.parse(t || '');
+      return Number.isFinite(n) ? n : Infinity;
+    };
+
+    const entries = await listFolderAll(folderPath);
+
+    const { ordByName, zeroNames, orientationByName = {} } = await buildOrderIndexFromSidecars(entries);
+
+    const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
+
+    // exclude order=0 and build sorting keys
+    const annotated = imageEntries
+      .map(e => {
+        const nameLower = (e.name || '').toLowerCase();
+        const orderFlag = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
+          ? ordByName[nameLower]
+          : Infinity;
+        const orient = orientationByName[nameLower] || null; // NEW
+        return {
+          entry: e,
+          ord: Number.isFinite(orderFlag) ? orderFlag : Infinity, // primary
+          seq: seqFromName(e.name),                               // tiebreak 1
+          t:   safeTime(e.client_modified),                       // tiebreak 2
+          isZero: zeroNames.has(nameLower),
+          orient
+        };
+      })
+      .filter(x => !x.isZero);
+
+    annotated.sort((a, b) => {
+      if (a.ord !== b.ord) return a.ord - b.ord;
+      if (a.seq !== b.seq) return a.seq - b.seq;
+      if (a.t !== b.t)     return a.t - b.t;
+      return naturalCompare(a.entry.name, b.entry.name);
+    });
+
+    const images = await Promise.all(
+      annotated.map(({ entry, ord, orient }) => limitRPC(async () => {
+        try {
+          const pathL = entry.path_display || entry.path_lower;
+
+          const thumb   = makeThumbUrl(pathL, 'w480h320');
+          const display = makeThumbUrl(pathL, 'w1024h768');
+
+          const lr = await AX.post(
+            'https://api.dropboxapi.com/2/files/get_temporary_link',
+            { path: pathL },
+            {
+              // ⬇️ FIXED: the stray quote after ${accessToken} caused a syntax error
+              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }
+          );
+
+          return {
+            url: lr.data.link,   // full-size
+            display,             // mid-size (use this for main image)
+            thumb,               // small preview
+            name: entry.name,
+            path: pathL,
+            size: entry.size,
+            client_modified: entry.client_modified,
+            order: Number.isFinite(ord) ? ord : null,
+            is_zero: false,
+            orientation: orient // NEW
+          };
+        } catch (err) {
+          console.error('⚠️ Error getting link for file:', entry.name, err.response?.data || err.message);
+          return null;
+        }
+      }))
+    );
+
+    if (String(debug) === '1') {
+      const allImageNames = imageEntries.map(e => e.name);
+      return res.json({
+        images: images.filter(Boolean),
+        _debug: {
+          zeroNames: Array.from(zeroNames),
+          allImageNames,
+          sortedNames: annotated.map(x => ({
+            name: x.entry.name,
+            ord: Number.isFinite(x.ord) ? x.ord : null,
+            seq: x.seq,
+            t: x.t,
+            orientation: x.orient || null
+          })),
+        }
+      });
+    }
+
+    res.json({ images: images.filter(Boolean) });
+  } catch (err) {
+    console.error('❌ Failed to fetch files:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Unable to fetch files', details: err.message });
+  }
+});
+
+/* ------------------------------- By-category ------------------------------ */
+/* ------------------------------- By-category ------------------------------ */
+/* Resolve the category to ONE folder via _metadata.json.category,
+   then populate images from that SAME folder (exactly like /files). */
 router.get('/by-category', async (req, res) => {
   const t0 = Date.now();
   try {
@@ -616,92 +632,235 @@ router.get('/by-category', async (req, res) => {
     const debug = String(req.query.debug || '') === '1';
     if (!rawCat) return res.status(400).json({ error: 'Missing category param' });
 
-    // normalize slug: "gold-leaf" -> "gold leaf"
     const wantCat = rawCat.toLowerCase().replace(/-/g, ' ').trim();
 
-    // Find Website Photos root
+    // 1) Find "Website Photos" root
     const rootEntries = await listFolderAll('');
     const websitePhotosFolder = rootEntries.find(
-      entry => entry.name === 'Website Photos' && entry['.tag'] === 'folder'
+      e => e.name === 'Website Photos' && e['.tag'] === 'folder'
     );
     if (!websitePhotosFolder) {
       return res.status(404).json({ error: 'Website Photos folder not found' });
     }
 
-    // List project folders
+    // 2) Scan immediate subfolders to find the ONE whose _metadata.json.category matches
     const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
     const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
 
-    const results = [];
-    let foldersScanned = 0, imagesConsidered = 0, imagesMatched = 0;
+    let matchFolder = null;
 
     for (const folder of projectFolders) {
       try {
         const entries = await listFolderAll(folder.path_lower);
-        const { metaByName, zeroNames } = await buildMetaIndexFromSidecarsCached(entries, folder.path_lower);
+        const metadataFile = entries.find(
+          e => e['.tag'] === 'file' && e.name === '_metadata.json'
+        );
+        if (!metadataFile) continue;
 
-        // Build candidates for this folder (non-zero images only)
-        const imgs = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
-        for (const e of imgs) {
-          imagesConsidered++;
-          const key = (e.name || '').toLowerCase();
-          if (zeroNames.has(key)) continue;
-          const meta = metaByName[key] || {};
-          const cat = (meta.category || '').toString().trim().toLowerCase();
-          if (!cat || cat !== wantCat) continue;
-
-          const pathL = e.path_lower || e.path_display;
-          let url = null;
-          try {
-            url = await getTempLinkCached(pathL);
-          } catch (err) {
-            console.warn('⚠️ temp link failed:', e.name, err.response?.data || err.message);
-            continue; // skip this one rather than bombing the whole request
-          }
-
-          results.push({
-            url,
-            name: e.name,
-            path: pathL,
-            category: meta.category || '',
-            order: Number.isFinite(meta.order) ? meta.order : null,
-            folder: { id: folder.id, name: folder.name, path: folder.path_display }
+        const cacheKey = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
+        let meta = _get(cacheKey);
+        if (!meta) {
+          const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
+              'Content-Type': 'text/plain'
+            },
+            responseType: 'text',
+            transformResponse: [d => d],
+            validateStatus: s => s < 500
           });
-          imagesMatched++;
+          if (r.status !== 200) continue;
+          meta = safeParseJson(r.data, metadataFile.name);
+          _set(cacheKey, meta, 10 * 60 * 1000);
         }
 
-        foldersScanned++;
-      } catch (folderErr) {
-        console.warn(`⚠️ Skipping folder due to error: ${folder.name}`, folderErr.response?.data || folderErr.message);
-        continue; // keep scanning other folders
+        const cat = String(meta?.category || '').toLowerCase().trim();
+        if (cat && cat === wantCat) {
+          matchFolder = { folder, entries };
+          break;
+        }
+      } catch (e) {
+        console.warn('by-category scan error:', folder.name, e.message);
       }
     }
 
-    // Sort: folder name, then image order, then natural filename
-    results.sort((a, b) => {
-      const nf = naturalCompare(a.folder?.name, b.folder?.name);
-      if (nf !== 0) return nf;
-      const ao = Number.isFinite(a.order) ? a.order : Infinity;
-      const bo = Number.isFinite(b.order) ? b.order : Infinity;
-      if (ao !== bo) return ao - bo;
-      return naturalCompare(a.name, b.name);
-    });
-
-    const payload = { images: results, category: rawCat };
-    if (debug) {
-      payload._debug = {
-        normalizedCategory: wantCat,
-        foldersScanned,
-        imagesConsidered,
-        imagesMatched,
-        ms: Date.now() - t0
-      };
+    if (!matchFolder) {
+      return res.status(404).json({ error: `No folder found for category "${rawCat}"` });
     }
 
+    // 3) Build images for THAT folder only (same logic as /files)
+    const { folder, entries } = matchFolder;
+
+    const { ordByName, zeroNames, orientationByName = {} } =
+      await buildOrderIndexFromSidecars(entries);
+
+    const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
+
+    const seqFromName = (name = '') => {
+      const m = String(name).match(/(?:^|[^\d])(\d{1,6})(?!\d)/);
+      if (!m) return Infinity;
+      const n = parseInt(m[1], 10);
+      return Number.isFinite(n) ? n : Infinity;
+    };
+    const safeTime = (t) => {
+      const n = Date.parse(t || '');
+      return Number.isFinite(n) ? n : Infinity;
+    };
+
+    const annotated = imageEntries
+      .map(e => {
+        const nameLower = (e.name || '').toLowerCase();
+        const ord = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
+          ? ordByName[nameLower]
+          : Infinity;
+        return {
+          entry: e,
+          ord: Number.isFinite(ord) ? ord : Infinity,
+          seq: seqFromName(e.name),
+          t:   safeTime(e.client_modified),
+          isZero: zeroNames.has(nameLower),
+          orient: orientationByName[nameLower] || null
+        };
+      })
+      .filter(x => !x.isZero);
+
+    annotated.sort((a, b) => {
+      if (a.ord !== b.ord) return a.ord - b.ord;
+      if (a.seq !== b.seq) return a.seq - b.seq;
+      if (a.t !== b.t)     return a.t - b.t;
+      return naturalCompare(a.entry.name, b.entry.name);
+    });
+
+    const images = await Promise.all(
+      annotated.map(({ entry, ord, orient }) => limitRPC(async () => {
+        try {
+          const pathL = entry.path_display || entry.path_lower;
+          const thumb   = makeThumbUrl(pathL, 'w480h320');
+          const display = makeThumbUrl(pathL, 'w1024h768');
+
+          const lr = await AX.post(
+            'https://api.dropboxapi.com/2/files/get_temporary_link',
+            { path: pathL },
+            { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+          );
+
+          return {
+            url: lr.data.link,
+            display,
+            thumb,
+            name: entry.name,
+            path: pathL,
+            size: entry.size,
+            client_modified: entry.client_modified,
+            order: Number.isFinite(ord) ? ord : null,
+            is_zero: false,
+            orientation: orient,
+            folder: {
+              id: folder.id,
+              name: folder.name,
+              path: folder.path_display || folder.path_lower
+            }
+          };
+        } catch (err) {
+          console.error('⚠️ temp link failed:', entry.name, err.response?.data || err.message);
+          return null;
+        }
+      }))
+    );
+
+    const payload = {
+      images: images.filter(Boolean),
+      category: rawCat,
+      _debug: debug ? { ms: Date.now() - t0, folder: folder.path_display || folder.path_lower } : undefined
+    };
     res.json(payload);
   } catch (err) {
     console.error('❌ Failed to fetch images by category:', err.response?.data || err.message);
     res.status(500).json({ error: 'Unable to fetch images by category', details: err.message });
+  }
+});
+
+
+/* ------------------------ Category -> Folder resolver --------------------- */
+const CATMAP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+router.get('/folder-by-category', async (req, res) => {
+  try {
+    const rawCat = String(req.query.category || '').trim();
+    if (!rawCat) return res.status(400).json({ error: 'Missing category param' });
+
+    const wantCat = rawCat.toLowerCase().replace(/-/g, ' ').trim();
+
+    // cached?
+    const ck = `catmap:${wantCat}`;
+    const cached = _get(ck);
+    if (cached) return res.json(cached);
+
+    // find "Website Photos"
+    const rootEntries = await listFolderAll('');
+    const websitePhotosFolder = rootEntries.find(
+      e => e.name === 'Website Photos' && e['.tag'] === 'folder'
+    );
+    if (!websitePhotosFolder) {
+      return res.status(404).json({ error: 'Website Photos folder not found' });
+    }
+
+    // iterate immediate subfolders (projects)
+    const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
+    const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
+
+    for (const folder of projectFolders) {
+      try {
+        const entries = await listFolderAll(folder.path_lower);
+        const metadataFile = entries.find(
+          e => e['.tag'] === 'file' && e.name === '_metadata.json'
+        );
+        if (!metadataFile) continue;
+
+        const cacheKey = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
+        let meta = _get(cacheKey);
+        if (!meta) {
+          const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
+              'Content-Type': 'text/plain'
+            },
+            responseType: 'text',
+            transformResponse: [d => d],
+            validateStatus: s => s < 500
+          });
+          if (r.status !== 200) continue;
+          meta = safeParseJson(r.data, metadataFile.name);
+          _set(cacheKey, meta, 10 * 60 * 1000);
+        }
+
+        const cat = String(meta?.category || '').toLowerCase().trim();
+        if (!cat) continue;
+
+        if (cat === wantCat) {
+          const out = {
+            folder: {
+              id: folder.id,
+              name: folder.name,
+              path: folder.path_display || folder.path_lower
+            },
+            category: rawCat
+          };
+          _set(ck, out, CATMAP_TTL_MS);
+          return res.json(out);
+        }
+      } catch (e) {
+        console.warn('folder-by-category scan error:', folder.name, e.message);
+        continue;
+      }
+    }
+
+    return res.status(404).json({ error: `No folder found for category "${rawCat}"` });
+  } catch (err) {
+    console.error('❌ folder-by-category failed:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Unable to resolve category to folder', details: err.message });
   }
 });
 
