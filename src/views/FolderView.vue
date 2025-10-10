@@ -13,14 +13,14 @@
       </v-col>
     </v-row>
 
-    <v-alert v-if="error" type="error" class="ma-4">
+    <!-- <v-alert v-if="error" type="error" class="ma-4">
       {{ error }}
       <v-btn color="white" variant="text" class="ml-4" @click="fetchFolderImages">
         Retry
       </v-btn>
-    </v-alert>
+    </v-alert> -->
 
-    <div v-if="images.length > 0">
+    <div class="images-grid" v-if="images.length > 0">
       <v-row v-for="(row, rowIndex) in masonryRows" :key="rowIndex" no-gutters>
         <v-col
           v-for="image in row"
@@ -34,9 +34,9 @@
                 :src="image.url"
                 :alt="image.name || 'Gallery image'"
                 :lazy-src="image.thumbnail || image.url"
-                cover
+                contain
                 class="image-preview"
-                aspect-ratio="1"
+                
               >
                 <template #placeholder>
                   <div class="fill-height d-flex align-center justify-center">
@@ -229,30 +229,44 @@ onMounted(fetchFolderImages)
   background-color: #42b983;
 }
 
-.folder-view { max-width: 1800px; margin: 0 auto; padding: 0 16px; }
+.folder-view { max-width: 1800px; margin: 0 auto; padding: 0 ; }
 
 .image-container {
-  position: relative; width: 100%; padding-bottom: 100%;
-  overflow: hidden; background-color: #f5f5f5;
+  /* position: relative; */
+  width: 100%;
+  height: 100%;
+  /* display: flex; */
+  /* align-items: flex-start;
+  justify-content: center;
+  background-color: #f5f5f5;
+  padding-top: 0; */
 }
 
 .single { padding-bottom: 50%; }
 .double { padding-bottom: 100%; }
 
-.image-card {
-  width: 100%; height: 100%; position: relative;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 0; overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  background-color: #f5f5f5;
-}
-
 .image-preview {
-  position: absolute; top: 0; left: 0;
-  width: 100%; height: 100%; object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  /* transition: transform 0.3s ease; */
 }
 
-@media (max-width: 1264px) {
+.image-card {
+  width: 100%;
+  height: auto;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0;
+  overflow: hidden;
+  /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  background-color: #f5f5f5; */
+  /* display: flex;
+  align-items: flex-start;
+  justify-content: center; */
+}
+
+/* @media (max-width: 1264px) {
   .masonry-layout { padding: 0 24px; }
   .masonry-row { gap: 20px; }
   .double-row .masonry-item { flex: 1 1 calc(50% - 10px); max-width: calc(50% - 10px); }
@@ -266,12 +280,17 @@ onMounted(fetchFolderImages)
   .single-row .masonry-item,
   .double-row .masonry-item { width: 100%; max-width: 100%; flex: 1 1 100% !important; }
   .image-card { aspect-ratio: 4/3; }
+} */
+
+.images-grid{
+  padding-top: .85rem;
 }
 
 .v-card {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform, box-shadow;
-  height: 100%; border-radius: 0;
+  /* height: 100%; border-radius: 0; */
+  width: 100%;
 }
 
 .v-card.on-hover {

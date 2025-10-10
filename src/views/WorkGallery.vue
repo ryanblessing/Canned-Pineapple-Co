@@ -1,4 +1,5 @@
 <template>
+  <div class="header-border"></div>
   <v-container fluid class="home-container">
     <main>
       <div v-if="!loading && !error" class="project-grid">
@@ -67,6 +68,7 @@ async function fetchCategory() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     images.value = Array.isArray(data.images) ? data.images : []
+    console.log('images', images.value)
   } catch (e) {
     console.error('by-category error:', e)
     error.value = e?.message || 'Failed to load category images'
@@ -92,11 +94,10 @@ onMounted(fetchCategory)
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  padding: 0.5rem 0;
+  gap: 1rem;
+  padding-top: .85rem;
+  padding-bottom: 0.5rem;
 }
-
-.project-card { }
 
 .folder-link {
   text-decoration: none;
@@ -154,5 +155,11 @@ onMounted(fetchCategory)
   text-align: center;
   padding: 2rem;
   color: #ff4444;
+}
+
+.header-border {
+  border-top: 3px solid #e0e0e0eb;
+  margin: 0 auto;
+  width: 100%;
 }
 </style>

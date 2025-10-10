@@ -1,14 +1,14 @@
 <template>
-    <div class="header-content">
+    <div v-if="$route.name !== 'about' || $route.name !== 'contact'" class="header-content">
       <slot>
         <template v-if="$route.name === 'home'">
-          <p class="header-text">
-            A CREATIVE STUDIO FOCUSED IN SIGN PAINTINGS, MURALS, VISUAL ART AND BRAND DESIGN
+          <p class="home-header-text">
+            A CREATIVE STUDIO FOCUSED IN SIGN PAINTING, MURALS, VISUAL ART AND BRAND DESIGN
           </p>
         </template>
         <template v-else-if="$route.name === 'folder'">
           <div class="header-section title-section">
-            <p class="header-text" style="color: #42b983; font-weight: 700; font-size: 1.5rem;">{{ folderName }}</p>
+            <p class="header-text" style="color: #3e2723; font-weight: 700; font-size: 1.5rem;">{{ folderName }}</p>
           </div>
           <div class="header-section description-section">
             <p v-if="folderDescription" class="header-text">
@@ -23,6 +23,10 @@
         </template>
       </slot>
     </div>
+    <!-- <div v-if="$route.name === 'about'">
+      <p class="header-section">
+      </p>
+    </div> -->
 </template>
 
 <script setup>
@@ -53,11 +57,11 @@ const route = useRoute();
   display: flex;
   align-items: center;
   width: 100%;
-  justify-content: center;
-  padding: 0 20px;
+  /* justify-content: center; */
+  padding: 0;
   min-height: 100px;
-  border-top: 3px solid #e0e0e0eb;
-  border-bottom: 3px solid #e0e0e0eb;
+  border-top: .18rem solid #3e2723;
+  border-bottom: .18rem solid #3e2723;
 }
 .folder-header {
   display: flex;
@@ -70,54 +74,66 @@ const route = useRoute();
 .header-section {
   display: flex;
   align-items: center;
-  min-height: 80px;
+  height: 75px;
   box-sizing: border-box;
-  padding: 5px 0;
+  padding: 0;
+  /* padding: 5px 0 0 0; */
 }
 
 .title-section {
   justify-content: center;
   text-align: center;
-  border-right: 3px solid #e0e0e0eb;
-  width: 20%;
-  flex: 0 0 20%;
+  line-height: 1;
+  width: 305px;
+  flex: 0 0 305px;
+  padding: 0;
 }
 
 .description-section {
-  justify-content: center;
-  text-align: center;
-  width: 60%;
+  text-align: left;
+  border-right: .18rem solid #3e2723;
+  border-left: .18rem solid #3e2723;
+  width: 75%;
   flex: 0 0 60%;
-  padding: 0 30px;
+  padding: 0 17px;
+  /* text-transform: uppercase;
+  letter-spacing: 1px; */
+  
 }
 
 .services-section {
-  justify-content: center;
-  text-align: center;
-  border-left: 3px solid #e0e0e0eb;
-  width: 20%;
-  flex: 0 0 20%;
-  padding: 0 1rem;
+  /* justify-content: center; */
+  /* text-align: center; */
+  /* border-left: 3px solid #e0e0e0eb; */
+  width: 15%;
+  flex: 0 0 23%;
+  /* padding: 0 1rem; */
 }
 
 /* Text styles */
 .header-text {
-  font-family: 'Gotham', sans-serif;
+  margin: 0;
+  /* font-size: 1rem; */
+  width: 100%;
+  line-height: 1.2;
+  color: #3e2723;
+  text-align: inherit;
+  font-family: var(--font-gotham);
   font-weight: 400;
-  font-size: 1rem;
-  color: #333;
-  letter-spacing: 0.5px;
-  line-height: 1.6;
-  margin: 10px 0 20px;
-  text-align: center;
+  /* letter-spacing: 0.5px; */
   text-transform: uppercase;
 }
 
-/* Divider */
-.divider {
-  height: 150%;
-  width: 3px;
-  background-color: #e0e0e0eb;
+.home-header-text {
+  margin: 0;
+  font-size: 21px;
+  width: 100%;
+  line-height: 1;
+  color: #3e2723;
+  text-align: inherit;
+  font-family: var(--font-gotham);
+  font-weight: 400;
+  /* letter-spacing: 0.5px; */
+  text-transform: uppercase;
 }
-
 </style>

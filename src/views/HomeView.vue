@@ -111,8 +111,9 @@ const fetchFolders = async () => {
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* exactly three columns */
-  gap: 0.5rem;
-  padding: 0.5rem 0;
+  gap: 1.15rem;
+  padding-top: 1.15rem;
+  padding-bottom: 0.5rem;
 }
 
 .folder-link {
@@ -166,13 +167,13 @@ const fetchFolders = async () => {
   align-items: center;     /* vertical center */
   justify-content: center; /* horizontal center */
   opacity: 0;              /* hidden initially */
-  transition: opacity 0.25s ease, background 0.25s ease;
+  transition: opacity 0.50s ease, background 0.25s ease;
   pointer-events: none;    /* let clicks pass to the link */
   background: rgba(255, 255, 255, 0);  /* transparent initially */
 }
 
 .folder-link:hover .folder-overlay {
-  opacity: 1;
+  opacity: 2.5;
   background: rgba(255, 255, 255, 0.45); 
 }
 
@@ -186,12 +187,18 @@ const fetchFolders = async () => {
 /* Title: black, centered */
 .folder-title {
   margin: 0;
-  color: #000;
-  font-size: 1.1rem;
-  font-weight: 600;
+  margin-left: 1rem;
+  margin-right: 1rem;
+  color: #3e2723;
+  font-size: 35px;
+  /* font-weight: 600; */
   text-align: center;
+  text-transform: uppercase;
   line-height: 1.2;
-  padding: 0.25rem 0.5rem;
+  padding: 0.5rem 0.75rem;
+  /* letter-spacing: 2px; */
+  /* font-weight: 500; */
+  font-family: var(--font-gotham-medium);
 }
 
 /* Loading and error states */
