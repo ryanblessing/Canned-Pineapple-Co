@@ -7,18 +7,26 @@
       <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" class="contact-email">
         INFO@CANNEDPINEAPPLECO.COM
       </a>
+      <img 
+        :src="ContactImage" 
+        alt="Canned Pineapple Co. Logo" 
+        class="contact-logo"
+      />
     </div>
   </v-container>
 </template>
 
-<script>
-
-export default {
-  name: 'ContactView'
-};
+<script setup>
+import ContactImage from '../assets/contact-logo.png';
 </script>
 
 <style scoped>
+.contact-logo {
+  max-width: 225px;
+  height: auto;
+  margin-top: 2rem;
+}
+
 .contact-info {
   display: flex;
   flex-direction: column;
