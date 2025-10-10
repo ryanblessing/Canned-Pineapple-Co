@@ -27,23 +27,30 @@
           :key="image.path"
           :cols="row.length === 1 ? '12' : '6'"
           class="pa-1"
+          :class="{'v-col-12': row.length === 1, 'v-col-6': row.length > 1}"
         >
           <v-card class="image-card" elevation="2">
             <div class="image-container">
-              <v-img
-                :src="image.url"
-                :alt="image.name || 'Gallery image'"
-                :lazy-src="image.thumbnail || image.url"
-                contain
-                class="image-preview"
-                
-              >
-                <template #placeholder>
-                  <div class="fill-height d-flex align-center justify-center">
-                    <v-progress-circular indeterminate color="grey lighten-5" size="32" width="2" />
-                  </div>
-                </template>
-              </v-img>
+              <div class="image-wrapper">
+                <v-img
+                  :src="image.url"
+                  :alt="image.name || 'Gallery image'"
+                  :lazy-src="image.thumbnail || image.url"
+                  contain
+                  class="image-preview"
+                >
+                  <template #placeholder>
+                    <div class="fill-height d-flex align-center justify-center">
+                      <v-progress-circular indeterminate color="grey lighten-5" size="32" width="2" />
+                    </div>
+                  </template>
+                </v-img>
+                <!-- <div class="image-caption">
+                  {{ image.name }}
+                  {{ image.orientation }}
+                  {{ image.order }}
+                </div> -->
+              </div>
             </div>
           </v-card>
         </v-col>
@@ -102,21 +109,36 @@ const sortedImages = computed(() => {
   return copy
 })
 
-/** Build rows from the sorted list (1, then 2 pattern) */
+/** Build rows alternating between horizontal and square images */
 const masonryRows = computed(() => {
   const rows = []
-  const list = sortedImages.value
-  let currentIndex = 0
-  let rowNumber = 1
-
-  while (currentIndex < list.length) {
-    const itemsInRow = rowNumber % 2 === 1 ? 1 : 2
-    const rowImages = list.slice(currentIndex, currentIndex + itemsInRow)
-    if (!rowImages.length) break
-    rows.push(rowImages)
-    currentIndex += itemsInRow
-    rowNumber++
+  const list = [...sortedImages.value]
+  const horizontalImages = list.filter(img => img.orientation === 'horizontal')
+  const squareImages = list.filter(img => img.orientation !== 'horizontal')
+  
+  let hIndex = 0
+  let sIndex = 0
+  let nextShouldBeHorizontal = true
+  
+  while (hIndex < horizontalImages.length || sIndex < squareImages.length) {
+    if (nextShouldBeHorizontal && hIndex < horizontalImages.length) {
+      // Add horizontal image
+      rows.push([horizontalImages[hIndex++]])
+    } else if (sIndex < squareImages.length) {
+      // Add two square images if available, otherwise just one
+      const squares = []
+      squares.push(squareImages[sIndex++])
+      if (sIndex < squareImages.length) {
+        squares.push(squareImages[sIndex++])
+      }
+      rows.push(squares)
+    } else if (hIndex < horizontalImages.length) {
+      // If no more squares but still have horizontals
+      rows.push([horizontalImages[hIndex++]])
+    }
+    nextShouldBeHorizontal = !nextShouldBeHorizontal
   }
+  
   return rows
 })
 
@@ -245,25 +267,53 @@ onMounted(fetchFolderImages)
 .single { padding-bottom: 50%; }
 .double { padding-bottom: 100%; }
 
+/* .image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+} */
+
 .image-preview {
   max-width: 100%;
   max-height: 100%;
+  /* width: 100%;
+  height: 100%; */
   object-fit: contain;
-  /* transition: transform 0.3s ease; */
+  /* transition: opacity 0.3s ease; */
 }
 
+/* hover for testing */
+.image-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* hover for testing */
+.image-wrapper:hover .image-caption {
+  opacity: 1;
+}
+
+/* .image-wrapper:hover .image-preview {
+  opacity: 0.9;
+} */
+
 .image-card {
-  width: 100%;
   height: auto;
   position: relative;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 0;
   overflow: hidden;
-  /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  background-color: #f5f5f5; */
-  /* display: flex;
-  align-items: flex-start;
-  justify-content: center; */
 }
 
 /* @media (max-width: 1264px) {
