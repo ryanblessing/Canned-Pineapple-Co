@@ -322,4 +322,199 @@ footer {
   align-items: center;
   gap: 20px;
 }
+
+/* Responsive logo container */
+@media (max-width: 1200px) {
+  .logo-container {
+    padding-left: 20px;
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .logo-container {
+    padding-left: 10px;
+    min-width: 80px;
+    margin-top: 10px;
+  }
+}
+
+/* Responsive body padding */
+@media (max-width: 1200px) {
+  body {
+    padding: 0 50px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0 20px;
+  }
+}
+
+/* Responsive logo */
+@media (max-width: 1500px) {
+  .logo {
+    max-height: 55px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .logo {
+    max-height: 50px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .logo {
+    max-height: 45px;
+  }
+}
+
+@media (max-width: 768px) {
+  .logo {
+    max-height: 40px;
+  }
+}
+
+/* Responsive navigation content */
+@media (max-width: 1400px) {
+  .nav-content {
+    padding-left: 30px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .nav-content {
+    padding-left: 20px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .nav-content {
+    padding-left: 15px;
+  }
+
+  nav .dropdown > .dropdown-toggle {
+    font-size: .9em;
+  }
+  
+  nav ul {
+    gap: 15px;
+  }
+}
+
+@media (max-width: 900px) {
+  .nav-content {
+    padding-left: 10px;
+  }
+  
+  nav ul {
+    gap: 12px;
+  }
+
+  nav .dropdown > .dropdown-toggle {
+    font-size: .8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .nav-content {
+    /* padding-left: 5px; */
+    /* width: auto;
+    flex-grow: 1; */
+    justify-content: center;
+  }
+  
+  nav ul {
+    gap: 10px;
+  }
+}
+
+
+/* Responsive navigation spacing */
+@media (max-width: 1200px) {
+  nav ul {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 1024px) {
+  nav ul {
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  nav ul {
+    gap: 12px;
+    font-size: .65rem;
+  }
+}
+
+/* Responsive navigation text */
+@media (max-width: 1500px) {
+  nav a {
+    font-size: 1.1rem;
+    letter-spacing: 0.4px;
+  }
+}
+
+@media (max-width: 1300px) {
+  nav a {
+    font-size: 1rem;
+    letter-spacing: 0.3px;
+  }
+}
+
+@media (max-width: 1100px) {
+  nav a {
+    font-size: 0.9rem;
+    letter-spacing: 0.2px;
+  }
+}
+
+@media (max-width: 1024px) {
+  nav a {
+    font-size: 0.85rem;
+    padding: 0.15rem 0;
+  }
+}
+
+@media (max-width: 900px) {
+  nav a {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  nav a {
+    font-size: 0.7rem;
+    padding: 0.1rem 0;
+  }
+  
+  nav ul {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  nav a {
+    font-size: 0.6rem;
+    letter-spacing: 0.1px;
+  }
+  
+  nav ul {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 430px) {
+  nav .dropdown > .dropdown-toggle {
+    font-size: .6rem;
+  }
+  .logo {
+    max-height: 30px;
+  }
+}
 </style>

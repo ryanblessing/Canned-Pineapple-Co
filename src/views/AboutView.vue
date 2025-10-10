@@ -149,4 +149,19 @@ p {
     font-size: 1.2rem;
   }
 }
+
+@media (min-width: 700px) {
+  /* .about-container {
+    padding: 4rem 0;
+  } */
+  
+  h1 .about-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 3rem !important;
+  }
+  
+  p .about-content{ 
+    font-size: .65rem !important;
+  }
+}
 </style>
