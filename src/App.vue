@@ -3,7 +3,7 @@
   <div class="header-container">
     <div class="logo-container">
       <router-link to="/" class="logo-link" aria-label="Go to homepage">
-        <img :src="logo" alt="Canned Pineapple" class="logo" />
+        <img :src="logo" alt="Canned Pineapple" class="logo"  @click="this.$router.push('/')"/>
       </router-link>
     </div>
     <div class="nav-content">
@@ -20,20 +20,15 @@
               >
                 WORK ▾
               </span>
-              <ul class="dropdown-menu" role="menu" aria-label="Work categories">
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/signs' }">Signs</router-link>
-                </li>
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">Gold Leaf</router-link>
-                </li>
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/murals' }">Murals</router-link>
-                </li>
-                <li role="none">
-                  <router-link role="menuitem" :to="{ path: '/work/branding' }">Branding</router-link>
-                </li>
-              </ul>
+              <div class="dropdown-menu" role="menu" aria-label="Work categories">
+                <div class="menu-row">
+                  <!-- <router-link role="menuitem" :to="{ path: '/' }">HOME</router-link> -->
+                  <router-link role="menuitem" :to="{ path: '/work/signs' }">SIGNS</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/gold-leaf' }">GOLD LEAF</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/murals' }">MURALS</router-link>
+                  <router-link role="menuitem" :to="{ path: '/work/branding' }">BRANDING</router-link>
+                </div>
+              </div>
             </li>
 
             <!-- Other nav links -->
@@ -87,7 +82,7 @@ const year = new Date().getFullYear()
 
 body {
   margin: 0;
-  padding: 0 30px 0 30px;
+  padding: 0 90px 0 90px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -121,16 +116,18 @@ p, span, div, a, button, input, textarea, select, label {
   top: 0;
   z-index: 1000;
   background-color: white;
-  padding: 0.5rem 0;
+  padding: 0 0 0 .5rem;
   box-sizing: border-box;
   width: 100%;
 }
 
 /* Logo container (25% width) */
 .logo-container {
-  width: 25%;
-  display: flex;
-  align-items: center;
+  margin-top: 15px;
+  width: 15%;
+  padding-left: 35px;
+  /* display: flex;
+  align-items: center; */
 }
 
 /* Logo link */
@@ -140,7 +137,7 @@ p, span, div, a, button, input, textarea, select, label {
 }
 
 .logo {
-  max-height: 80px;
+  max-height: 60px;
   height: auto;
   width: auto;
   display: block;
@@ -148,10 +145,12 @@ p, span, div, a, button, input, textarea, select, label {
 
 /* Navigation content (75% width) */
 .nav-content {
-  width: 50%;
+  width: 65%;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding-left: 75px;
+  /* padding-top: 15px; */
 }
 
 /* Navigation */
@@ -177,7 +176,6 @@ nav ul {
 /* Default blue for links */
 nav a {
   text-decoration: none;
-  /* color: #72a2e4; */
   color: #3e2723;
   font-weight: 700;
   font-size: 1.3rem;
@@ -191,7 +189,7 @@ nav a {
 
 nav a:hover,
 nav a.router-link-exact-active {
-  color: #42b983;
+  color: #b30202;
 }
 
 /* Dropdown */
@@ -219,31 +217,58 @@ nav .dropdown > .dropdown-toggle {
 /* Hover = green */
 nav .dropdown:hover > .dropdown-toggle,
 nav .dropdown > .dropdown-toggle:hover {
-  color: #42b983;
+  color: #b30202;
 }
 
 /* Optional: focus for accessibility */
 nav .dropdown > .dropdown-toggle:focus-visible {
-  outline: 2px solid #42b983;
+  outline: 2px solid #3e2723;
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 /* Dropdown menu */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
 .dropdown-menu {
   display: none;
   position: absolute;
-  top: 100%;      /* menu touches the trigger, no dead zone */
-  left: 0;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   background: white;
   border: 1px solid #eee;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-  list-style: none;
-  padding: 0.5rem 0;
-  margin: 0;      /* no gap = no hover flicker */
-  min-width: 180px;
+  padding: 0.5rem 1.5rem;
   z-index: 2000;
-  text-align: left;
+  min-width: max-content;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.menu-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-row a {
+  color: #3e2723;
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.2rem;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.menu-row a:hover {
+  color: #b30202;
+  background-color: #f9f9f9;
+  border-radius: 3px;
 }
 
 /* Show only while hovered (prevents sticking) */
@@ -251,21 +276,26 @@ nav .dropdown > .dropdown-toggle:focus-visible {
   display: block;
 }
 
-.dropdown-menu li { padding: 0; }
+.dropdown-menu .v-list-item {
+  display: inline-block;
+  padding: 0 1rem;
+  margin: 0;
+}
 
 .dropdown-menu a {
-  display: block;
-  padding: 0.55rem 1rem;
-  color: #72a2e4;
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  color: #3e2723;
   font-size: 1.05rem;
   text-decoration: none;
   white-space: nowrap;
   line-height: 1.3;
-}
+  transition: color 0.2s ease;}
 
 .dropdown-menu a:hover {
-  background-color: #f5f5f5;
-  color: #42b983;
+  background-color: white;
+  color: #b30202;
+  opacity: .5;
 }
 
 /* Main content area */
