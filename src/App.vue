@@ -370,6 +370,10 @@ footer {
   .logo {
     max-height: 50px;
   }
+  span{
+    font-size: 1rem !important;
+  }
+
 }
 
 @media (max-width: 1024px) {
@@ -469,7 +473,7 @@ footer {
 
 @media (max-width: 1300px) {
   nav a {
-    font-size: 1rem;
+    font-size: .85rem !important;
     letter-spacing: 0.3px;
   }
 }

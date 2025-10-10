@@ -145,7 +145,7 @@ const route = useRoute();
   }
   
   .title-section .header-text {
-    font-size: 1.3rem;
+    font-size: 1.1rem !important;
   }
   
   .home-header-text {
@@ -178,7 +178,7 @@ const route = useRoute();
     padding: 0 10px !important;
   }
   .header-text {
-    font-size: 0.85rem !important;
+    font-size: 0.75rem !important;
   }
 }
 
@@ -296,6 +296,57 @@ const route = useRoute();
     font-size: 0.65rem;
     text-align: center;
     /* padding: 10px; */
+  }
+}
+
+@media screen and (max-width: 390px) {
+  .header-content {
+    flex-direction: column !important;
+    min-height: auto !important;
+  }
+  
+  .header-section {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    height: auto !important;
+    padding: 15px 20px !important;
+    border-right: none !important;
+    border-left: none !important;
+    border-bottom: 0.18rem solid #3e2723 !important;
+    text-align: center !important;
+  }
+  
+  .services-section {
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    word-wrap: break-word !important;
+    /* padding: 5px 10px !important; */
+  }
+  
+  .header-section:last-child {
+    border-bottom: none !important;
+  }
+  
+  .header-text,
+  .header-section p,
+  .header-section .header-text,
+  .title-section .header-text,
+  .home-header-text {
+    font-size: 0.5rem !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    padding: 2px 1px !important;
+  }
+  
+  /* Specific override for the folder name/title */
+  .title-section .header-text[style*="font-size"] {
+    font-size: 0.5rem !important;
+  }
+  
+  .home-header-text {
+    font-size: 0.5rem !important;
+    padding: 10px 5px !important;
   }
 }
 </style>

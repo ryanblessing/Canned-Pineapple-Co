@@ -54,4 +54,52 @@ import ContactImage from '../assets/contact-logo.png';
   font-size: 2rem;
   text-decoration: none;
 }
+@media(max-width: 1500px) {
+  .contact-logo {
+    max-width: 225px !important;
+  }
+  .contact-title {
+    font-size: 1.1rem !important;
+  }
+  .contact-email {
+    font-size: 1.1rem !important;
+  }
+}
+@media(max-width: 1200px) {
+  .contact-logo {
+    max-width: 175px !important;
+  }
+}
+@media(max-width: 960px) {
+  .contact-logo {
+    max-width: 150px !important;
+  }
+}
+@media(max-width: 768px) {
+  .contact-logo {
+    max-width: 150px !important;
+  }
+}
+@media(max-width: 425px) {
+  .contact-logo {
+    max-width: 135px !important;
+  }
+  .contact-title {
+    font-size: .95rem !important;
+  }
+  .contact-email {
+    font-size: .95rem !important;
+  }
+}
+@media(max-width: 390px) {
+  .contact-logo {
+    max-width: 150px !important;
+  }
+  .contact-title {
+    font-size: .75rem !important;
+  }
+  .contact-email {
+    font-size: .75rem !important;
+  }
+}
 </style>
