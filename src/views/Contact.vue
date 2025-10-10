@@ -3,15 +3,15 @@
   <div class="header-border"></div>
   <v-container fluid>
     <div class="contact-info">
-      <p class="contact-title"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT:</p>
-      <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" class="contact-email">
-        INFO@CANNEDPINEAPPLECO.COM
-      </a>
       <img 
         :src="ContactImage" 
         alt="Canned Pineapple Co. Logo" 
         class="contact-logo"
       />
+      <p class="contact-title"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT:</p>
+      <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" class="contact-email">
+        INFO@CANNEDPINEAPPLECO.COM
+      </a>
     </div>
   </v-container>
 </template>
@@ -22,7 +22,7 @@ import ContactImage from '../assets/contact-logo.png';
 
 <style scoped>
 .contact-logo {
-  max-width: 225px;
+  max-width: 275px;
   height: auto;
   margin-top: 2rem;
 }
@@ -33,10 +33,9 @@ import ContactImage from '../assets/contact-logo.png';
   justify-content: center;
   align-items: center;
   text-align: center;
-  min-height: 60vh;
+  min-height: 50vh;
+  margin-top: -40px;
   font-family: var(--font-gotham);
-  /* margin: 0 auto;
-  padding: 10px; */
 }
 .header-border {
   border-top: .18rem solid #3e2723;

@@ -190,7 +190,7 @@ const fetchFolders = async () => {
   margin-left: 1rem;
   margin-right: 1rem;
   color: #3e2723;
-  font-size: 35px;
+  font-size: 25px;
   /* font-weight: 600; */
   text-align: center;
   text-transform: uppercase;

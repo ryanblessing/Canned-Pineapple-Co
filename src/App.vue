@@ -58,7 +58,7 @@
 
   <footer>
     <div class="footer-content">
-      <p><b>&copy; {{ year }} Canned Pineapple Co.</b></p>
+      <p>&copy; {{ year }} Canned Pineapple Co.</p>
     </div>
   </footer>
 </template>
@@ -177,7 +177,7 @@ nav ul {
 nav a {
   text-decoration: none;
   color: #3e2723;
-  font-weight: 700;
+  font-weight: 500;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
   line-height: 1.3;
@@ -185,6 +185,10 @@ nav a {
   transition: color 0.2s ease;
   display: inline-flex;
   align-items: center;
+}
+
+span {
+  font-weight: 500 !important;
 }
 
 nav a:hover,
@@ -202,7 +206,7 @@ nav a.router-link-exact-active {
 /* Make WORK look like links + match metrics exactly */
 nav .dropdown > .dropdown-toggle {
   color: #3e2723;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
   line-height: 1.3;
@@ -317,10 +321,13 @@ footer {
 }
 
 .footer-content {
+  text-transform: uppercase;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 20px;
+  font-family: var(--font-gotham);
+  font-weight: 400;
 }
 
 /* Responsive logo container */
