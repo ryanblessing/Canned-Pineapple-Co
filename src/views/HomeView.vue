@@ -194,6 +194,7 @@ const fetchFolders = async (force = false) => {
       cache: 'no-store',
       headers: { 'Accept': 'application/json' }
     });
+
     if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
 
     const data = await response.json();

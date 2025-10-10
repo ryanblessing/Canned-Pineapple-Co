@@ -194,6 +194,7 @@ function filenameFromLinkedImage(link) {
 }
 
 /* -------------------- order+orientation index from sidecars ---------------- */
+// NEW: normalize project text
 function normalizeOrientation(raw) {
   const v = String(raw || '').trim().toLowerCase();
   if (v === 'horizontal' || v === 'landscape') return 'horizontal';
@@ -219,7 +220,8 @@ async function buildOrderIndexFromSidecars(entries) {
   }
 
   const ordByName = Object.create(null);
-  const orientationByName = Object.create(null); // NEW
+  const orientationByName = Object.create(null);
+  const projectByName = Object.create(null); // NEW
   const zeroNames = new Set();
 
   await Promise.all(jsonSidecars.map(f => limitContent(async () => {
@@ -241,6 +243,7 @@ async function buildOrderIndexFromSidecars(entries) {
       const meta = safeParseJson(dl.data, f.name);
       const ord = toOrderNum(meta?.order_flag);
       const orient = normalizeOrientation(meta?.orientation);
+      const proj = (meta?.project ? String(meta.project).trim() : '') || null; // NEW
 
       let exact = filenameFromLinkedImage(meta?.linked_image);
       const assign = (candArr) => {
@@ -248,6 +251,7 @@ async function buildOrderIndexFromSidecars(entries) {
           const nameLower = cand.name.toLowerCase();
           ordByName[nameLower] = ord;
           if (orient) orientationByName[nameLower] = orient;
+          if (proj) projectByName[nameLower] = proj;     // NEW
           if (ord === 0) zeroNames.add(nameLower);
         }
       };
@@ -259,6 +263,7 @@ async function buildOrderIndexFromSidecars(entries) {
       if (byLowerName.has(exact)) {
         ordByName[exact] = ord;
         if (orient) orientationByName[exact] = orient;
+        if (proj) projectByName[exact] = proj;           // NEW
         if (ord === 0) zeroNames.add(exact);
       } else {
         assign(byBase.get(base(exact)) || []);
@@ -268,7 +273,7 @@ async function buildOrderIndexFromSidecars(entries) {
     }
   })));
 
-  return { ordByName, zeroNames, orientationByName };
+  return { ordByName, zeroNames, orientationByName, projectByName }; // NEW
 }
 
 function sortAndFilterImagesByName(entries, ordByName, zeroNames) {
@@ -530,7 +535,7 @@ router.get('/files', async (req, res) => {
 
     const entries = await listFolderAll(folderPath);
 
-    const { ordByName, zeroNames, orientationByName = {} } = await buildOrderIndexFromSidecars(entries);
+    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } = await buildOrderIndexFromSidecars(entries); // NEW
 
     const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
 
@@ -541,14 +546,16 @@ router.get('/files', async (req, res) => {
         const orderFlag = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
           ? ordByName[nameLower]
           : Infinity;
-        const orient = orientationByName[nameLower] || null; // NEW
+        const orient = orientationByName[nameLower] || null;
+        const proj   = projectByName[nameLower] || null; // NEW
         return {
           entry: e,
           ord: Number.isFinite(orderFlag) ? orderFlag : Infinity, // primary
           seq: seqFromName(e.name),                               // tiebreak 1
           t:   safeTime(e.client_modified),                       // tiebreak 2
           isZero: zeroNames.has(nameLower),
-          orient
+          orient,
+          proj
         };
       })
       .filter(x => !x.isZero);
@@ -561,7 +568,7 @@ router.get('/files', async (req, res) => {
     });
 
     const images = await Promise.all(
-      annotated.map(({ entry, ord, orient }) => limitRPC(async () => {
+      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => { // NEW proj
         try {
           const pathL = entry.path_display || entry.path_lower;
 
@@ -572,7 +579,6 @@ router.get('/files', async (req, res) => {
             'https://api.dropboxapi.com/2/files/get_temporary_link',
             { path: pathL },
             {
-              // ⬇️ FIXED: the stray quote after ${accessToken} caused a syntax error
               headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
             }
           );
@@ -587,7 +593,8 @@ router.get('/files', async (req, res) => {
             client_modified: entry.client_modified,
             order: Number.isFinite(ord) ? ord : null,
             is_zero: false,
-            orientation: orient // NEW
+            orientation: orient,
+            project: proj || null          // NEW
           };
         } catch (err) {
           console.error('⚠️ Error getting link for file:', entry.name, err.response?.data || err.message);
@@ -608,7 +615,8 @@ router.get('/files', async (req, res) => {
             ord: Number.isFinite(x.ord) ? x.ord : null,
             seq: x.seq,
             t: x.t,
-            orientation: x.orient || null
+            orientation: x.orient || null,
+            project: x.proj || null
           })),
         }
       });
@@ -621,7 +629,6 @@ router.get('/files', async (req, res) => {
   }
 });
 
-/* ------------------------------- By-category ------------------------------ */
 /* ------------------------------- By-category ------------------------------ */
 /* Resolve the category to ONE folder via _metadata.json.category,
    then populate images from that SAME folder (exactly like /files). */
@@ -692,8 +699,8 @@ router.get('/by-category', async (req, res) => {
     // 3) Build images for THAT folder only (same logic as /files)
     const { folder, entries } = matchFolder;
 
-    const { ordByName, zeroNames, orientationByName = {} } =
-      await buildOrderIndexFromSidecars(entries);
+    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } =
+      await buildOrderIndexFromSidecars(entries); // NEW
 
     const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
 
@@ -720,7 +727,8 @@ router.get('/by-category', async (req, res) => {
           seq: seqFromName(e.name),
           t:   safeTime(e.client_modified),
           isZero: zeroNames.has(nameLower),
-          orient: orientationByName[nameLower] || null
+          orient: orientationByName[nameLower] || null,
+          proj:   projectByName[nameLower] || null // NEW
         };
       })
       .filter(x => !x.isZero);
@@ -733,7 +741,7 @@ router.get('/by-category', async (req, res) => {
     });
 
     const images = await Promise.all(
-      annotated.map(({ entry, ord, orient }) => limitRPC(async () => {
+      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => { // NEW proj
         try {
           const pathL = entry.path_display || entry.path_lower;
           const thumb   = makeThumbUrl(pathL, 'w480h320');
@@ -756,6 +764,7 @@ router.get('/by-category', async (req, res) => {
             order: Number.isFinite(ord) ? ord : null,
             is_zero: false,
             orientation: orient,
+            project: proj || null, // NEW
             folder: {
               id: folder.id,
               name: folder.name,
@@ -861,6 +870,87 @@ router.get('/folder-by-category', async (req, res) => {
   } catch (err) {
     console.error('❌ folder-by-category failed:', err.response?.data || err.message);
     res.status(500).json({ error: 'Unable to resolve category to folder', details: err.message });
+  }
+});
+
+/* ------------------------ NEW: Project -> Folder resolver ----------------- */
+router.get('/folder-by-project', async (req, res) => {
+  try {
+    const rawProj = String(req.query.project || '').trim();
+    if (!rawProj) return res.status(400).json({ error: 'Missing project param' });
+
+    const norm = (s) => String(s || '').toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const want = norm(rawProj);
+
+    const ck = `projmap:${want}`;
+    const cached = _get(ck);
+    if (cached) return res.json(cached);
+
+    // find "Website Photos"
+    const rootEntries = await listFolderAll('');
+    const websitePhotosFolder = rootEntries.find(
+      e => e.name === 'Website Photos' && e['.tag'] === 'folder'
+    );
+    if (!websitePhotosFolder) {
+      return res.status(404).json({ error: 'Website Photos folder not found' });
+    }
+
+    // iterate immediate subfolders (projects)
+    const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
+    const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
+
+    // 1) direct name match
+    let target = projectFolders.find(f => norm(f.name) === want);
+
+    // 2) fallback: check _metadata.json title if needed
+    if (!target) {
+      for (const folder of projectFolders) {
+        try {
+          const entries = await listFolderAll(folder.path_lower);
+          const metadataFile = entries.find(e => e['.tag'] === 'file' && e.name === '_metadata.json');
+          if (!metadataFile) continue;
+
+          const cacheKey = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
+          let meta = _get(cacheKey);
+          if (!meta) {
+            const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
+                'Content-Type': 'text/plain'
+              },
+              responseType: 'text',
+              transformResponse: [d => d],
+              validateStatus: s => s < 500
+            });
+            if (r.status !== 200) continue;
+            meta = safeParseJson(r.data, metadataFile.name);
+            _set(cacheKey, meta, 10 * 60 * 1000);
+          }
+
+          const title = norm(meta?.title || '');
+          if (title && title === want) { target = folder; break; }
+        } catch (e) {
+          console.warn('folder-by-project metadata scan error:', folder.name, e.message);
+        }
+      }
+    }
+
+    if (!target) return res.status(404).json({ error: `No folder found for project "${rawProj}"` });
+
+    const out = {
+      folder: {
+        id: target.id,
+        name: target.name,
+        path: target.path_display || target.path_lower
+      },
+      project: rawProj
+    };
+    _set(ck, out, CATMAP_TTL_MS);
+    res.json(out);
+  } catch (err) {
+    console.error('❌ folder-by-project failed:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Unable to resolve project to folder', details: err.message });
   }
 });
 
