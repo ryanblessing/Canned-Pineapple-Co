@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import aboutImage from '../assets/about_img.jpg';
+import aboutImage from '../assets/about_img.jpeg';
 import PageHeader from '@/components/PageHeader.vue';
 </script>
 

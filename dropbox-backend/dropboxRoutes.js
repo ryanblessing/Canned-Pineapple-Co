@@ -496,7 +496,14 @@ router.get('/website-photos', async (req, res) => {
     if (!websitePhotosFolder) return res.status(404).json({ error: 'Website Photos folder not found' });
 
     const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
-    const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
+    // const projectFolders = projectEntries.filter(
+    //   const projectFolders = projectEntries.filter(
+    //     e => e['.tag'] === 'folder' && !/page/i.test(e.name)
+    //   );
+    // )
+    const projectFolders = projectEntries.filter(
+      e => e['.tag'] === 'folder' && !/page/i.test(e.name)
+    );
 
     const cards = await Promise.all(projectFolders.map(getProjectCard));
     const valid = cards.filter(Boolean);

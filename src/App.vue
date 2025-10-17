@@ -43,6 +43,15 @@
                 FOLLOW
               </a>
             </li>
+            <li>
+              <a
+                href="https://shop.cannedpineappleco.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                SHOP
+              </a>
+            </li>
             <!--
             <li><router-link to="/shop">SHOP</router-link></li>
             -->
