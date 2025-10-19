@@ -26,7 +26,7 @@
           v-for="(tile, colIndex) in row"
           :key="tile.image.path || tile.image.url || (rowIndex + '-' + colIndex)"
           :cols="tile.span"
-          class="pa-1"
+          class="image-gaps"
         >
           <v-card class="image-card" elevation="2">
             <div class="image-container" :class="tile.span === 12 ? 'single' : 'double'">
@@ -330,11 +330,14 @@ export default {
 </script>
 
 <style scoped>
+.image-gaps { padding: 5px !important; }
 .images-grid{
   padding-top: .85rem;
+  padding-bottom: .85rem;
+  border-bottom: .12rem solid #3e2723;
 }
 
-.folder-view { max-width: 1800px; margin: 0 auto; padding: 0 16px; }
+.folder-view { max-width: 1800px; margin: 0 auto; padding: 0;}
 
 .image-card { width: 100%; height: 100%; position: relative; border-radius: 0; overflow: hidden; background: #f5f5f5; }
 .image-container { position: relative; width: 100%; overflow: hidden; background: #f5f5f5; }
@@ -363,4 +366,8 @@ export default {
 
 @media (max-width: 960px) { .folder-view { padding: 16px 8px; } }
 @media (prefers-reduced-motion: reduce) { .image-el { transition: none; } .img-skeleton { animation: none; transition: none; } }
+
+@media (max-width: 1350px) {
+  .image-gaps { padding: 5px !important; }
+}
 </style>

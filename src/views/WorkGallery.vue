@@ -99,10 +99,12 @@ onMounted(fetchCategory)
 }
 
 .project-grid {
+  border-top: .12px solid #3e2723;;
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
-  padding: 0.5rem 0;
+  padding-top: .9rem;
 }
 
 .project-card {
@@ -157,6 +159,43 @@ onMounted(fetchCategory)
   text-align: center;
   padding: 2rem;
   color: #ff4444;
+}
+
+@media (max-width: 1350px) {
+  .project-grid {
+    border-top: 0.12rem solid #3e2723;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0.9rem 0;
+    margin: 0 auto;
+    max-width: calc(100% - 2rem);
+  }
+
+  .project-card {
+    contain-intrinsic-size: 0;
+    aspect-ratio: 1;
+  }
+
+  .card-container {
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .folder-thumbnail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0 !important;
+    transition: filter 0.25s ease, opacity 0.25s ease, transform 0.2s ease;
+  }
 }
 
 @media (max-width: 960px) {

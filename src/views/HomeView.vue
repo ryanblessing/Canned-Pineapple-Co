@@ -113,7 +113,9 @@ const fetchFolders = async () => {
   grid-template-columns: repeat(3, 1fr); /* exactly three columns */
   gap: 1.15rem;
   padding-top: 1.15rem;
-  padding-bottom: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: .12rem solid #3e2723;
+  /* border-bottom: .18rem solid #3e2723; */
 }
 
 .folder-link {
@@ -213,5 +215,49 @@ const fetchFolders = async () => {
   text-align: center;
   padding: 2rem;
   color: #ff4444;
+}
+
+@media (max-width: 1350px) {
+  .project-grid {
+    grid-template-columns: repeat(3, 1fr); /* exactly two columns */
+    gap: .9rem;
+    padding-top: .9rem;
+    padding-bottom: .9rem;
+    border-bottom: .12rem solid #3e2723;
+  }
+
+  .folder-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;     /* vertical center */
+    justify-content: center; /* horizontal center */
+    opacity: 0;              /* hidden initially */
+    transition: opacity 0.50s ease, background 0.25s ease;
+    pointer-events: none;    /* let clicks pass to the link */
+    background: rgba(255, 255, 255, 0);  /* transparent initially */
+  }
+
+  .folder-link:hover .folder-overlay {
+    opacity: 2.5;
+    background: rgba(255, 255, 255, 0.45); 
+  }
+
+  .folder-title {
+    margin: 0;
+    margin-left: 1rem;
+    margin-right: 1rem;
+    color: #3e2723;
+    font-size: 25px;
+    font-weight: 500;
+    text-align: center;
+    text-transform: uppercase;
+    line-height: 1.2;
+    padding: 0.5rem 0.75rem;
+    /* letter-spacing: 2px; */
+    /* font-weight: 500; */
+    font-family: var(--font-gotham-medium);
+  }
+
 }
 </style>
