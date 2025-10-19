@@ -334,7 +334,7 @@ export default {
 .images-grid{
   padding-top: .85rem;
   padding-bottom: .85rem;
-  border-bottom: .12rem solid #3e2723;
+  /* border-bottom: .12rem solid #3e2723; */
 }
 
 .folder-view { max-width: 1800px; margin: 0 auto; padding: 0;}

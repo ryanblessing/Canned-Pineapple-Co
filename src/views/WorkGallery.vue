@@ -162,14 +162,20 @@ onMounted(fetchCategory)
 }
 
 @media (max-width: 1350px) {
+  .home-container{
+    padding: 0;
+    margin: 0;
+    width: 100%;
+  }
   .project-grid {
     border-top: 0.12rem solid #3e2723;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
-    padding: 0.9rem 0;
-    margin: 0 auto;
-    max-width: calc(100% - 2rem);
+    padding: 0.9rem 0;  /* Changed from padding-top to padding */
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .project-card {

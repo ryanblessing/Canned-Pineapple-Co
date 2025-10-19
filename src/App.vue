@@ -138,7 +138,8 @@ p, span, div, a, button, input, textarea, select, label {
   top: 0;
   z-index: 1000;
   background-color: white;
-  padding: 0 0 0 .5rem;
+  padding: 0;
+  /* padding: 0 0 0 .5rem; */
   box-sizing: border-box;
   width: 100%;
   height: 60px !important;
@@ -338,6 +339,7 @@ nav .dropdown > .dropdown-toggle:focus-visible {
 }
 
 .footer-content {
+  border-top: .12rem solid #3e2723;
   text-transform: uppercase;
   display: flex;
   justify-content: space-between;
@@ -437,18 +439,20 @@ nav .dropdown > .dropdown-toggle:focus-visible {
     /* gap: 20px; */
     font-family: var(--font-gotham);
     font-weight: 400;
-    font-size: 10px;
+    font-size: 10px !important;
     height: 70px;
+    width: 100%;
   }
 
   .footer-text {
+    font-size: 10px !important;
     padding: 0 0 40px 0 !important;
     margin-bottom: 0;       /* Remove any bottom margin from text */
   }
 
   .instagram-link {
     /* height: 18px; */
-    padding: 0 0 30px 0 !important;
+    padding: 0 0 35px 0 !important;
     margin-bottom: 0;       /* Remove any bottom margin from link */
   }
 
@@ -457,6 +461,19 @@ nav .dropdown > .dropdown-toggle:focus-visible {
     height: 20px;
     /* vertical-align: middle; */
     
+  }
+
+  .header-container {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: white;
+    padding: 0;
+    /* padding: 0 0 0 .5rem; */
+    box-sizing: border-box;
+    width: 100%;
+    /* height: 60px !important; */
   }
 }
 

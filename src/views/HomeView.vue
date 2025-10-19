@@ -114,7 +114,7 @@ const fetchFolders = async () => {
   gap: 1.15rem;
   padding-top: 1.15rem;
   padding-bottom: 1rem;
-  border-bottom: .12rem solid #3e2723;
+  /* border-bottom: .12rem solid #3e2723; */
   /* border-bottom: .18rem solid #3e2723; */
 }
 
@@ -223,7 +223,7 @@ const fetchFolders = async () => {
     gap: .9rem;
     padding-top: .9rem;
     padding-bottom: .9rem;
-    border-bottom: .12rem solid #3e2723;
+    /* border-bottom: .12rem solid #3e2723; */
   }
 
   .folder-overlay {
