@@ -182,7 +182,7 @@ const route = useRoute();
   }
   
   .home-header-text {
-    font-size: 1.1rem;
+    font-size: 14px;
   }
 
   .services-section {
