@@ -45,10 +45,11 @@ import PageHeader from '@/components/PageHeader.vue';
 <style scoped>
 .about-page {
   position: relative;
+  padding-bottom: .9rem;
 }
 
 .header-border {
-  border-top: .18rem solid #3e2723;
+  border-top: .12rem solid #3e2723;
   margin: 0 auto;
   width: 100%;
 }
@@ -69,7 +70,7 @@ import PageHeader from '@/components/PageHeader.vue';
   /* padding: 1rem 0 0 0; */
   text-transform: uppercase;
   letter-spacing: 0.35px;
-  border-bottom: .18rem solid #3e2723;
+  border-bottom: .12rem solid #3e2723;
 }
 
 .about-container {
@@ -132,6 +133,22 @@ h1 {
 p {
   margin-bottom: 1.5rem;
   font-size: 1.1rem;
+}
+
+@media(max-width: 1350px) {
+  .about-title {
+    font-family: 'Gotham', sans-serif;
+    font-size: 1.4rem !important;
+    font-weight: 500 !important;
+    color: #3e2723;
+    margin: 0;
+    display: flex;
+    justify-items: flex-start;
+    /* padding: 1rem 0 0 0; */
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    border-bottom: .12rem solid #3e2723;
+  }
 }
 
 /* Responsive adjustments */

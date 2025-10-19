@@ -8,7 +8,7 @@
         alt="Canned Pineapple Co. Logo" 
         class="contact-logo"
       />
-      <p class="contact-title"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT:</p>
+      <p class="contact-title"> FOR ALL PROJECT INQUIRIES, PLEASE CONTACT</p>
       <a href="mailto:INFO@CANNEDPINEAPPLECO.COM" class="contact-email">
         INFO@CANNEDPINEAPPLECO.COM
       </a>
@@ -34,11 +34,11 @@ import ContactImage from '../assets/contact-logo.png';
   align-items: center;
   text-align: center;
   min-height: 50vh;
-  margin-top: -40px;
+  /* margin-top: -20px; */
   font-family: var(--font-gotham);
 }
 .header-border {
-  border-top: .18rem solid #3e2723;
+  border-top: .12rem solid #3e2723;
   margin: 0 auto;
   width: 100%;
 }
@@ -63,6 +63,20 @@ import ContactImage from '../assets/contact-logo.png';
   }
   .contact-email {
     font-size: 1.1rem !important;
+  }
+}
+@media(max-width: 1350px) {
+  .contact-title {
+    font-size: .9rem !important;
+    font-weight: 400;
+    color: #b30202;
+    font-family: var(--font-gotham);
+  }
+  .contact-email {
+    font-family: var(--font-gotham);
+    color: #3e2723;
+    font-size: 1.4rem !important;
+    text-decoration: none;
   }
 }
 @media(max-width: 1200px) {
