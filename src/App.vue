@@ -389,12 +389,12 @@ nav .dropdown > .dropdown-toggle:focus-visible {
     padding: 0 70px;
   }
   a {
-    font-size: 16px !important;
+    font-size: 14px !important;
   }
   nav .dropdown > .dropdown-toggle {
     color: #3e2723;
     font-weight: 600;
-    font-size: 16px;
+    font-size: 14px;
     letter-spacing: 0.5px;
     line-height: 1.2;
     text-decoration: none;
