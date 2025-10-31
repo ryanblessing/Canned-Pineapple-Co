@@ -38,17 +38,18 @@
 </template>
 
 <script setup>
-import aboutImage from '../assets/about_img.jpg';
+import aboutImage from '../assets/about_img.jpeg';
 import PageHeader from '@/components/PageHeader.vue';
 </script>
 
 <style scoped>
 .about-page {
   position: relative;
+  padding-bottom: .9rem;
 }
 
 .header-border {
-  border-top: .18rem solid #3e2723;
+  border-top: .12rem solid #3e2723;
   margin: 0 auto;
   width: 100%;
 }
@@ -69,7 +70,7 @@ import PageHeader from '@/components/PageHeader.vue';
   /* padding: 1rem 0 0 0; */
   text-transform: uppercase;
   letter-spacing: 0.35px;
-  border-bottom: .18rem solid #3e2723;
+  border-bottom: .12rem solid #3e2723;
 }
 
 .about-container {
@@ -134,8 +135,24 @@ p {
   font-size: 1.1rem;
 }
 
+@media(max-width: 1350px) {
+  .about-title {
+    font-family: 'Gotham', sans-serif;
+    font-size: 1.4rem !important;
+    font-weight: 500 !important;
+    color: #3e2723;
+    margin: 0;
+    display: flex;
+    justify-items: flex-start;
+    /* padding: 1rem 0 0 0; */
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    border-bottom: .12rem solid #3e2723;
+  }
+}
+
 /* Responsive adjustments */
-@media (min-width: 960px) {
+@media (max-width: 960px) {
   /* .about-container {
     padding: 4rem 0;
   } */
@@ -149,4 +166,54 @@ p {
     font-size: 1.2rem;
   }
 }
+
+@media (max-width: 768px) {
+  /* .about-container {
+    padding: 4rem 0;
+  } */
+  
+  h1 {
+    font-size: 1.2rem !important;
+    /* margin-bottom: 3rem !important; */
+  }
+  
+  p { 
+    font-size: 0.85rem !important;
+  }
+}
+
+@media (max-width: 425px) {
+  /* .about-container {
+    padding: 4rem 0;
+  } */
+  
+  h1 {
+    font-size: 1rem !important;
+    /* margin-bottom: 3rem !important; */
+  }
+  
+  p { 
+    font-size: 0.85rem !important;
+  }
+
+}
+
+@media (max-width: 390px) {
+  /* .about-container {
+    padding: 4rem 0;
+  } */
+  
+  h1 {
+    font-size: 0.9rem !important;
+    /* margin-bottom: 3rem !important; */
+  }
+  
+  p { 
+    font-size: 0.5rem !important;
+  }
+  .text-col {
+    padding: .5rem 0 0 .5rem !important;
+  }
+}
+
 </style>
