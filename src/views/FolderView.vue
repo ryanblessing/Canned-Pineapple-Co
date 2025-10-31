@@ -28,7 +28,7 @@
           :cols="tile.span"
           class="image-gaps"
         >
-          <v-card class="image-card" elevation="2">
+          <v-card class="image-card" elevation="0">
             <div class="image-container" :class="tile.span === 12 ? 'single' : 'double'">
               <img
                 class="image-el"
@@ -339,23 +339,35 @@ export default {
 
 .folder-view { max-width: 1800px; margin: 0 auto; padding: 0;}
 
-.image-card { width: 100%; height: 100%; position: relative; border-radius: 0; overflow: hidden; background: #f5f5f5; }
+.image-card { 
+  width: 100%; 
+  height: 100%; 
+  position: relative; 
+  border-radius: 0 !important; 
+  overflow: hidden; 
+  background: #f5f5f5;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  -moz-box-shadow: none !important;
+}
 .image-container { position: relative; width: 100%; overflow: hidden; background: #f5f5f5; }
 .image-container.single { padding-bottom: 66.66%; } /* 3:2 large */
 .image-container.double { padding-bottom: 100%; }   /* 1:1 small */
 
 .image-el {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; transform: translateZ(0);
-  transition: filter .25s ease, opacity .25s ease, transform .2s ease;
+  object-fit: cover;
+  border-radius: 0 !important;
+  /* transform: translateZ(0); */
+  /* transition: filter .25s ease, opacity .25s ease, transform .2s ease; */
 }
-.image-el.is-loading { filter: blur(12px) saturate(.9) brightness(.96); transform: scale(1.02); }
+/* .image-el.is-loading { filter: blur(12px) saturate(.9) brightness(.96); transform: scale(1.02); } */
 
 .img-skeleton {
   position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(90deg, rgba(240,240,240,0.85) 0%, rgba(250,250,250,0.95) 40%, rgba(240,240,240,0.85) 80%);
+  /* background: linear-gradient(90deg, rgba(240,240,240,0.85) 0%, rgba(250,250,250,0.95) 40%, rgba(240,240,240,0.85) 80%); */
   background-size: 200% 100%;
-  animation: shimmer 1.2s infinite linear;
+  /* animation: shimmer 1.2s infinite linear; */
   pointer-events: none;
   opacity: 1; transition: opacity .2s ease;
 }
