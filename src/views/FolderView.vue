@@ -57,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import PageHeader from '@/components/PageHeader.vue';
@@ -72,6 +72,38 @@ const currentFolder  = ref(null);
 const loading        = ref(true);
 const error          = ref(null);
 
+/* -------- perf hints (same idea as homepage) -------- */
+let hintsInstalled = false;
+function installPerfHintsOnce() {
+  if (hintsInstalled) return;
+  hintsInstalled = true;
+  const head = document.head;
+  const add = (rel, href, attrs = {}) => {
+    if ([...head.querySelectorAll(`link[rel="${rel}"]`)].some(l => l.href === href)) return;
+    const link = document.createElement('link');
+    link.rel = rel; link.href = href;
+    Object.entries(attrs).forEach(([k, v]) => link.setAttribute(k, v));
+    head.appendChild(link);
+  };
+  add('preconnect', 'https://content.dropboxapi.com', { crossorigin: '' });
+  add('preconnect', 'https://api.dropboxapi.com', { crossorigin: '' });
+}
+function preloadFirstImage(href, imagesrcset, imagesizes) {
+  if (!href) return;
+  const head = document.head;
+  const key = `preload-${href}`;
+  if (head.querySelector(`link[data-key="${CSS.escape(key)}"]`)) return;
+  const l = document.createElement('link');
+  l.rel = 'preload';
+  l.as = 'image';
+  l.href = href;
+  if (imagesrcset) l.setAttribute('imagesrcset', imagesrcset);
+  if (imagesizes)  l.setAttribute('imagesizes',  imagesizes);
+  l.setAttribute('fetchpriority', 'high');
+  l.setAttribute('data-key', key);
+  head.appendChild(l);
+}
+
 /* ---------- utils ---------- */
 const naturalCompare = (a, b) =>
   (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
@@ -82,7 +114,7 @@ const displayFolderName = computed(() => {
   return name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 });
 
-/* ---------- keep order EXACTLY the same ---------- */
+/* ---------- keep order EXACTLY the same (unchanged) ---------- */
 const imagesSorted = computed(() => {
   const list = images.value.slice();
   list.sort((a, b) => {
@@ -94,71 +126,52 @@ const imagesSorted = computed(() => {
   return list;
 });
 
-/* ---------- size by orientation (no reordering) ---------- */
-/* 'horizontal' => span 12 (large), 'square' => span 6 (small)
-   If orientation missing, fall back to your old pattern (1 large row, then 2 small) */
+/* ---------- size by orientation (unchanged) ---------- */
 function spanFromOrientation(img) {
-  const o =
-    String(img?.orientation || img?.organization || '')
-      .toLowerCase()
-      .trim();
+  const o = String(img?.orientation || img?.organization || '').toLowerCase().trim();
   if (o === 'horizontal') return 12;
   if (o === 'square')     return 6;
-  return null; // unknown -> fallback pattern
+  return null;
 }
-
 const tileRows = computed(() => {
   const rows = [];
   let cur = [];
   let used = 0;
-  // fallback alternation state for images WITHOUT orientation
-  let nextFallbackSingle = true; // true => make the next unknown a full-width row
+  let nextFallbackSingle = true; // keeps your 12 / 6+6 look for unknowns
 
   for (const image of imagesSorted.value) {
     let span = spanFromOrientation(image);
-
     if (span == null) {
-      // Fallback to original look: 1 big, then 2 small (for *unknown* orientations only)
-      if (nextFallbackSingle) {
-        span = 12;
-        nextFallbackSingle = false; // next unknowns should be smalls
-      } else {
+      if (nextFallbackSingle) { span = 12; nextFallbackSingle = false; }
+      else {
         span = 6;
-        // if this small completes the half-row, flip back to single
         if (used === 6) nextFallbackSingle = true;
       }
     }
-
-    // if it doesn't fit, wrap line (preserve strict order)
-    if (used + span > 12) {
-      if (cur.length) rows.push(cur);
-      cur = [];
-      used = 0;
-    }
-
+    if (used + span > 12) { if (cur.length) rows.push(cur); cur = []; used = 0; }
     cur.push({ image, span });
-
     used += span;
-    if (used === 12) {
-      rows.push(cur);
-      cur = [];
-      used = 0;
-    }
+    if (used === 12) { rows.push(cur); cur = []; used = 0; }
   }
   if (cur.length) rows.push(cur);
   return rows;
 });
 
-/* ---------- image loading (lazy + skeleton) ---------- */
+/* ---------- global index: ONLY index 0 is eager ---------- */
+function globalIndex(rowIndex, colIndex) {
+  let idx = 0;
+  for (let r = 0; r < rowIndex; r++) idx += tileRows.value[r].length;
+  return idx + colIndex;
+}
+
+/* ---------- lazy loader (mirror homepage behavior) ---------- */
 const tinyPlaceholder =
   'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjZWVlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=';
 
-// choose which backend URL to use
 function bestBaseUrl(img) {
   return img?.display || img?.thumb || img?.url || '/placeholder.jpg';
 }
-// our /thumb proxy accepts ?s=w###h###, so we can swap sizes on the same URL
-function srcWithSize(url, size) {
+function withSize(url, size) {
   if (!url) return '/placeholder.jpg';
   try {
     const u = new URL(url, window.location.origin);
@@ -174,19 +187,19 @@ function widthHint(token) {
 }
 function sizesForSpan(span) {
   return span === 12
-    ? '(min-width: 960px) 100vw, 100vw'
-    : '(min-width: 960px) 50vw, 100vw';
+    ? '(min-width: 1200px) 100vw, 100vw'
+    : '(min-width: 1200px) 50vw, 100vw';
 }
 function srcsetFor(img, span) {
   const base = bestBaseUrl(img);
   const rungs = span === 12
     ? ['w1024h768', 'w1600h1200', 'w2048h1536']
-    : ['w480h320', 'w768h512', 'w1024h768'];
-  return rungs.map(s => `${srcWithSize(base, s)} ${widthHint(s)}`).join(', ');
+    : ['w640h480', 'w768h512', 'w1024h768'];
+  return rungs.map(s => `${withSize(base, s)} ${widthHint(s)}`).join(', ');
 }
 
-/* small concurrency limiter for decode() and network */
-const LOAD_CONCURRENCY = 6;
+/* Concurrency & observer tuned the same spirit as home */
+const LOAD_CONCURRENCY = 6; // modest to reduce early contention
 let activeLoads = 0;
 const queue = [];
 let io;
@@ -222,19 +235,27 @@ function ensureObserver() {
           setLoading(el, true);
           el.decoding = 'async';
           el.loading  = 'lazy';
+          el.fetchPriority = 'low';
           el.src = src;
         }));
       }
     });
-  }, { rootMargin: '300px 0px', threshold: 0.01 });
+  }, { rootMargin: '700px 0px', threshold: 0.01 });
   return io;
 }
 
 const vLazyImg = {
   mounted(el, binding) {
     const opts = binding.value || {};
-    // allow an eager hero if you want later
-    if (opts.eager) {
+    const isEager = !!opts.eager;
+
+    if (isEager) {
+      // Mirror homepage: eager + high priority for the FIRST image only
+      installPerfHintsOnce();
+      if (opts.src) {
+        // Start fetch before <img> paints, like we did on home
+        preloadFirstImage(opts.src, opts.srcset, opts.sizes);
+      }
       if (opts.priority) el.fetchPriority = 'high';
       enqueue(() => new Promise((resolve) => {
         const done = () => { setLoading(el, false); resolve(); };
@@ -243,26 +264,37 @@ const vLazyImg = {
         if (opts.srcset) el.srcset = opts.srcset;
         if (opts.sizes)  el.sizes  = opts.sizes;
         setLoading(el, true);
-        el.decoding = 'async';
-        el.src = opts.src;
+        el.decoding = 'auto';
+        el.loading  = 'eager';
+        el.src = opts.src; // small initial rung; srcset can upgrade if needed
       }));
       return;
     }
+
+    // Everyone else: true lazy
     el.__lazy = { src: opts.src, srcset: opts.srcset, sizes: opts.sizes };
     setLoading(el, true);
     ensureObserver().observe(el);
   },
-  unmounted(el) { if (io) io.unobserve(el); delete el.__lazy; }
+  unmounted(el) {
+    if (io) io.unobserve(el);
+    delete el.__lazy;
+  }
 };
 
-/* binding for each tile (uses tile.span) */
+/* binding for each tile (index 0 eager, rest lazy) */
 function bindingFor(tile, rowIndex, colIndex) {
   const base   = bestBaseUrl(tile.image);
-  const src    = srcWithSize(base, tile.span === 12 ? 'w1600h1200' : 'w768h512');
+  // Use a quick first-rung like home; browser can upgrade via srcset
+  const initialRung = tile.span === 12 ? 'w1024h768' : 'w768h512';
+  const src    = withSize(base, initialRung);
   const srcset = srcsetFor(tile.image, tile.span);
   const sizes  = sizesForSpan(tile.span);
-  const hero   = rowIndex === 0 && colIndex === 0;
-  return { src, srcset, sizes, eager: hero, priority: hero };
+
+  const idx = globalIndex(rowIndex, colIndex);
+  const isFirst = idx === 0;
+
+  return { src, srcset, sizes, eager: isFirst, priority: isFirst };
 }
 
 function onImgError(e) {
@@ -271,7 +303,7 @@ function onImgError(e) {
   if (el) el.src = '/placeholder.jpg';
 }
 
-/* ---------- data fetch ---------- */
+/* ---------- data fetch (unchanged sorting/exclusion) ---------- */
 watch(() => route.params.folderName, (nv) => {
   if (nv) { folderName.value = decodeURIComponent(nv); fetchFolderImages(); }
 });
@@ -303,9 +335,20 @@ async function fetchFolderImages() {
     const data = await res.json();
     const list = Array.isArray(data.images) ? data.images : [];
 
-    // If backend already attaches orientation/organization on each image, we use it.
-    // Otherwise this still works (falls back to the old 1/then/2 sizing pattern).
+    // Keep exclusion of order=0 from backend; also filter here just in case.
     images.value = list.filter(img => !img.is_zero);
+
+    // Preload the very first visible image (mirrors home behavior)
+    await nextTick();
+    const firstTile = tileRows.value?.[0]?.[0];
+    if (firstTile?.image) {
+      const base = bestBaseUrl(firstTile.image);
+      const initialRung = firstTile.span === 12 ? 'w1024h768' : 'w768h512';
+      const href = withSize(base, initialRung);
+      const srcset = srcsetFor(firstTile.image, firstTile.span);
+      const sizes  = sizesForSpan(firstTile.span);
+      preloadFirstImage(href, srcset, sizes);
+    }
   } catch (err) {
     console.error('Error fetching folder images:', err);
     error.value = 'Failed to load images. ' + (err.message || 'Please try again later.');
@@ -317,8 +360,9 @@ async function fetchFolderImages() {
 
 onMounted(fetchFolderImages);
 </script>
+
 <script>
-// register directive locally when using <script setup>
+/* Keep your directive registration pattern intact */
 export default {
   directives: {
     lazyImg: {
@@ -334,10 +378,9 @@ export default {
 .images-grid{
   padding-top: .85rem;
   padding-bottom: .85rem;
-  /* border-bottom: .12rem solid #3e2723; */
 }
 
-.folder-view { max-width: 1800px; margin: 0 auto; padding: 0;}
+.folder-view { max-width: 1800px; margin: 0 auto; padding: 0; }
 
 .image-card { 
   width: 100%; 
