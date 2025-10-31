@@ -32,6 +32,17 @@ const CARD_CACHE = new Map(); // key = folder.path_lower
 const CARD_TTL_MS = 30 * 60 * 1000;            // fresh 30m
 const CARD_STALE_GRACE_MS = 4 * 60 * 60 * 1000; // serve stale up to 4h while revalidating
 
+// NEW: sidecar-order index cache (skip re-parsing sidecars when unchanged)
+const ORDER_INDEX_CACHE = new Map();
+const ORDER_INDEX_TTL_MS = 30 * 60 * 1000;
+function _setOrderIndex(key, value) { ORDER_INDEX_CACHE.set(key, { value, expires: _now() + ORDER_INDEX_TTL_MS }); }
+function _getOrderIndex(key) {
+  const x = ORDER_INDEX_CACHE.get(key);
+  if (!x) return null;
+  if (x.expires < _now()) { ORDER_INDEX_CACHE.delete(key); return null; }
+  return x.value;
+}
+
 /* ----------------------------- concurrency caps --------------------------- */
 function limiter(max = 6) {
   let active = 0, q = [];
@@ -43,7 +54,7 @@ function limiter(max = 6) {
   };
 }
 const limitRPC = limiter(6);
-const limitContent = limiter(6);
+const limitContent = limiter(8); // safe nudge for image/content endpoints
 
 /* --------------------------------- helpers -------------------------------- */
 const BAD_SPACES = /[\u2000-\u200A\u00A0\u202F\u205F\u3000]/g;
@@ -106,6 +117,8 @@ let _refreshing = null;
 // single-process global guards (survive duplicate requires)
 const INIT_FLAG_KEY = '__DROPBOX_ROUTER_INIT__';
 const TIMER_KEY     = '__DROPBOX_TOKEN_TIMER__';
+// debounce log to reduce duplicate-startup noise
+let _lastTokenLog = 0;
 
 async function refreshAccessToken() {
   if (_refreshing) return _refreshing;
@@ -122,7 +135,11 @@ async function refreshAccessToken() {
       const newToken = resp.data.access_token;
       if (newToken && newToken !== accessToken) {
         accessToken = newToken;
-        console.log('🔁 Dropbox access token refreshed');
+        const now = Date.now();
+        if (now - _lastTokenLog > 2000) {
+          console.log('🔁 Dropbox access token refreshed');
+          _lastTokenLog = now;
+        }
       }
     } catch (err) {
       console.error('❌ Token refresh failed:', err.response?.data || err.message);
@@ -221,7 +238,7 @@ async function buildOrderIndexFromSidecars(entries) {
 
   const ordByName = Object.create(null);
   const orientationByName = Object.create(null);
-  const projectByName = Object.create(null); // NEW
+  const projectByName = Object.create(null);
   const zeroNames = new Set();
 
   await Promise.all(jsonSidecars.map(f => limitContent(async () => {
@@ -243,7 +260,7 @@ async function buildOrderIndexFromSidecars(entries) {
       const meta = safeParseJson(dl.data, f.name);
       const ord = toOrderNum(meta?.order_flag);
       const orient = normalizeOrientation(meta?.orientation);
-      const proj = (meta?.project ? String(meta.project).trim() : '') || null; // NEW
+      const proj = (meta?.project ? String(meta.project).trim() : '') || null;
 
       let exact = filenameFromLinkedImage(meta?.linked_image);
       const assign = (candArr) => {
@@ -251,7 +268,7 @@ async function buildOrderIndexFromSidecars(entries) {
           const nameLower = cand.name.toLowerCase();
           ordByName[nameLower] = ord;
           if (orient) orientationByName[nameLower] = orient;
-          if (proj) projectByName[nameLower] = proj;     // NEW
+          if (proj) projectByName[nameLower] = proj;
           if (ord === 0) zeroNames.add(nameLower);
         }
       };
@@ -263,7 +280,7 @@ async function buildOrderIndexFromSidecars(entries) {
       if (byLowerName.has(exact)) {
         ordByName[exact] = ord;
         if (orient) orientationByName[exact] = orient;
-        if (proj) projectByName[exact] = proj;           // NEW
+        if (proj) projectByName[exact] = proj;
         if (ord === 0) zeroNames.add(exact);
       } else {
         assign(byBase.get(base(exact)) || []);
@@ -273,7 +290,18 @@ async function buildOrderIndexFromSidecars(entries) {
     }
   })));
 
-  return { ordByName, zeroNames, orientationByName, projectByName }; // NEW
+  return { ordByName, zeroNames, orientationByName, projectByName };
+}
+
+// NEW: derive a quick “version” for sidecars: max modified time + count
+function sidecarVersion(entries) {
+  const sidecars = (entries || [])
+    .filter(e => e['.tag'] === 'file' && isJson(e.name) && e.name !== '_metadata.json');
+  const maxT = sidecars.reduce((m, e) => Math.max(
+    m,
+    Date.parse(e.client_modified || e.server_modified || 0) || 0
+  ), 0);
+  return String(maxT || 0) + ':' + (sidecars.length || 0);
 }
 
 function sortAndFilterImagesByName(entries, ordByName, zeroNames) {
@@ -391,6 +419,7 @@ router.get('/thumb/:b64', async (req, res) => {
       return;
     }
     await ensureAccessToken();
+    // fallback: redirect to temp link only if we couldn't thumbnail
     const lr = await AX.post(
       'https://api.dropboxapi.com/2/files/get_temporary_link',
       { path: path_lower },
@@ -487,6 +516,63 @@ async function getProjectCard(folder) {
   return card;
 }
 
+/* =========================== HOME THUMB PREWARM =========================== */
+// Decode the path from our /thumb/:b64 URLs so we can prewarm by path
+function _decodeThumbPathFromUrl(url = '') {
+  try {
+    const u = new URL(url, 'http://localhost'); // base only to parse
+    const m = u.pathname.match(/\/thumb\/([^/]+)$/) || u.pathname.match(/\/thumb\/([^/]+)\//) || u.pathname.match(/\/thumb\/([^?]+)/);
+    const b64 = (m && m[1]) ? m[1] : null;
+    if (!b64) return null;
+    let b = b64.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '=';
+    return Buffer.from(b, 'base64').toString('utf8');
+  } catch { return null; }
+}
+
+let _prewarming = false;
+async function prewarmTopHomeThumbnails() {
+  if (_prewarming) return;
+  _prewarming = true;
+  try {
+    // Mimic /website-photos sorting to pick the same top 6
+    const root = await listFolderAll('');
+    const website = root.find(e => e.name === 'Website Photos' && e['.tag'] === 'folder');
+    if (!website) return;
+
+    const projects = await listFolderAll(website.path_lower);
+    const folders = projects.filter(e => e['.tag'] === 'folder' && !/page/i.test(e.name));
+
+    const cards = await Promise.all(folders.map(getProjectCard));
+    const valid = cards.filter(Boolean);
+    valid.sort((a, b) => {
+      const ao = toOrderNum(a?.metadata?.order_flag);
+      const bo = toOrderNum(b?.metadata?.order_flag);
+      if (ao !== bo) return ao - bo;
+      return naturalCompare(a?.name, b?.name);
+    });
+
+    const topSix = valid.slice(0, 6);
+    // For each, decode the path from the thumb URL and warm all 3 mime variants
+    await Promise.all(topSix.map(c => limitContent(async () => {
+      const p = _decodeThumbPathFromUrl(c.thumbnail || '');
+      if (!p) return;
+      // Warm JPEG (Safari), WebP, and AVIF variants in cache
+      await Promise.all([
+        fetchThumbNegotiated(p, DEFAULT_THUMB, 'image/avif'),
+        fetchThumbNegotiated(p, DEFAULT_THUMB, 'image/webp'),
+        fetchThumbNegotiated(p, DEFAULT_THUMB, 'image/jpeg')
+      ]);
+    })));
+  } catch (e) {
+    console.warn('prewarmTopHomeThumbnails failed:', e.message);
+  } finally {
+    _prewarming = false;
+  }
+}
+// Kick a prewarm soon after boot, then refresh periodically
+setTimeout(() => { prewarmTopHomeThumbnails(); }, 2500);
+setInterval(() => { prewarmTopHomeThumbnails(); }, 15 * 60 * 1000);
+
 /* ================================ ROUTES ================================= */
 // Home — fast SWR cards
 router.get('/website-photos', async (req, res) => {
@@ -496,11 +582,6 @@ router.get('/website-photos', async (req, res) => {
     if (!websitePhotosFolder) return res.status(404).json({ error: 'Website Photos folder not found' });
 
     const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
-    // const projectFolders = projectEntries.filter(
-    //   const projectFolders = projectEntries.filter(
-    //     e => e['.tag'] === 'folder' && !/page/i.test(e.name)
-    //   );
-    // )
     const projectFolders = projectEntries.filter(
       e => e['.tag'] === 'folder' && !/page/i.test(e.name)
     );
@@ -542,7 +623,12 @@ router.get('/files', async (req, res) => {
 
     const entries = await listFolderAll(folderPath);
 
-    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } = await buildOrderIndexFromSidecars(entries); // NEW
+    // NEW: sidecar index cache
+    const ver = sidecarVersion(entries);
+    const ordKey = `ordidx:${String(folderPath || '').toLowerCase()}:${ver}`;
+    let ordIdx = _getOrderIndex(ordKey);
+    if (!ordIdx) { ordIdx = await buildOrderIndexFromSidecars(entries); _setOrderIndex(ordKey, ordIdx); }
+    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } = ordIdx;
 
     const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
 
@@ -554,7 +640,7 @@ router.get('/files', async (req, res) => {
           ? ordByName[nameLower]
           : Infinity;
         const orient = orientationByName[nameLower] || null;
-        const proj   = projectByName[nameLower] || null; // NEW
+        const proj   = projectByName[nameLower] || null;
         return {
           entry: e,
           ord: Number.isFinite(orderFlag) ? orderFlag : Infinity, // primary
@@ -574,26 +660,19 @@ router.get('/files', async (req, res) => {
       return naturalCompare(a.entry.name, b.entry.name);
     });
 
+    // Use proxy for all image sizes — removes get_temporary_link calls
     const images = await Promise.all(
-      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => { // NEW proj
+      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => {
         try {
           const pathL = entry.path_display || entry.path_lower;
-
           const thumb   = makeThumbUrl(pathL, 'w480h320');
           const display = makeThumbUrl(pathL, 'w1024h768');
-
-          const lr = await AX.post(
-            'https://api.dropboxapi.com/2/files/get_temporary_link',
-            { path: pathL },
-            {
-              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-            }
-          );
+          const large   = makeThumbUrl(pathL, 'w1600h1200'); // or 'w2048h1536'
 
           return {
-            url: lr.data.link,   // full-size
-            display,             // mid-size (use this for main image)
-            thumb,               // small preview
+            url: large,              // full-size via proxy
+            display,                 // mid-size (use this for main image)
+            thumb,                   // small preview
             name: entry.name,
             path: pathL,
             size: entry.size,
@@ -601,10 +680,10 @@ router.get('/files', async (req, res) => {
             order: Number.isFinite(ord) ? ord : null,
             is_zero: false,
             orientation: orient,
-            project: proj || null          // NEW
+            project: proj || null
           };
         } catch (err) {
-          console.error('⚠️ Error getting link for file:', entry.name, err.response?.data || err.message);
+          console.error('⚠️ Error building file entry:', entry.name, err.response?.data || err.message);
           return null;
         }
       }))
@@ -706,8 +785,12 @@ router.get('/by-category', async (req, res) => {
     // 3) Build images for THAT folder only (same logic as /files)
     const { folder, entries } = matchFolder;
 
-    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } =
-      await buildOrderIndexFromSidecars(entries); // NEW
+    // NEW: sidecar index cache
+    const ver = sidecarVersion(entries);
+    const ordKey = `ordidx:${String(folder.path_lower || folder.path_display || '').toLowerCase()}:${ver}`;
+    let ordIdx = _getOrderIndex(ordKey);
+    if (!ordIdx) { ordIdx = await buildOrderIndexFromSidecars(entries); _setOrderIndex(ordKey, ordIdx); }
+    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } = ordIdx;
 
     const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
 
@@ -735,7 +818,7 @@ router.get('/by-category', async (req, res) => {
           t:   safeTime(e.client_modified),
           isZero: zeroNames.has(nameLower),
           orient: orientationByName[nameLower] || null,
-          proj:   projectByName[nameLower] || null // NEW
+          proj:   projectByName[nameLower] || null
         };
       })
       .filter(x => !x.isZero);
@@ -747,21 +830,17 @@ router.get('/by-category', async (req, res) => {
       return naturalCompare(a.entry.name, b.entry.name);
     });
 
+    // Use proxy sizes; remove temp-link calls
     const images = await Promise.all(
-      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => { // NEW proj
+      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => {
         try {
           const pathL = entry.path_display || entry.path_lower;
           const thumb   = makeThumbUrl(pathL, 'w480h320');
           const display = makeThumbUrl(pathL, 'w1024h768');
-
-          const lr = await AX.post(
-            'https://api.dropboxapi.com/2/files/get_temporary_link',
-            { path: pathL },
-            { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
-          );
+          const large   = makeThumbUrl(pathL, 'w1600h1200');
 
           return {
-            url: lr.data.link,
+            url: large,
             display,
             thumb,
             name: entry.name,
@@ -771,7 +850,7 @@ router.get('/by-category', async (req, res) => {
             order: Number.isFinite(ord) ? ord : null,
             is_zero: false,
             orientation: orient,
-            project: proj || null, // NEW
+            project: proj || null,
             folder: {
               id: folder.id,
               name: folder.name,
@@ -779,7 +858,7 @@ router.get('/by-category', async (req, res) => {
             }
           };
         } catch (err) {
-          console.error('⚠️ temp link failed:', entry.name, err.response?.data || err.message);
+          console.error('⚠️ temp build failed:', entry.name, err.response?.data || err.message);
           return null;
         }
       }))
@@ -796,7 +875,6 @@ router.get('/by-category', async (req, res) => {
     res.status(500).json({ error: 'Unable to fetch images by category', details: err.message });
   }
 });
-
 
 /* ------------------------ Category -> Folder resolver --------------------- */
 const CATMAP_TTL_MS = 10 * 60 * 1000; // 10 minutes
