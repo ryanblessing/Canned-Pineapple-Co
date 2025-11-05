@@ -32,7 +32,7 @@ const CARD_CACHE = new Map(); // key = folder.path_lower
 const CARD_TTL_MS = 30 * 60 * 1000;            // fresh 30m
 const CARD_STALE_GRACE_MS = 4 * 60 * 60 * 1000; // serve stale up to 4h while revalidating
 
-// NEW: sidecar-order index cache (skip re-parsing sidecars when unchanged)
+// Sidecar-order index cache
 const ORDER_INDEX_CACHE = new Map();
 const ORDER_INDEX_TTL_MS = 30 * 60 * 1000;
 function _setOrderIndex(key, value) { ORDER_INDEX_CACHE.set(key, { value, expires: _now() + ORDER_INDEX_TTL_MS }); }
@@ -110,6 +110,17 @@ const isImage = n => /\.(jpe?g|png|gif|webp)$/i.test(n || '');
 const isJson  = n => /\.json$/i.test(n || '');
 const base = n => (n || '').replace(/\.[^.]+$/, '').toLowerCase();
 
+const seqFromName = (name = '') => {
+  const m = String(name).match(/(?:^|[^\d])(\d{1,6})(?!\d)/);
+  if (!m) return Infinity;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) ? n : Infinity;
+};
+const safeTime = (t) => {
+  const n = Date.parse(t || '');
+  return Number.isFinite(n) ? n : Infinity;
+};
+
 /* ----------------------------- Dropbox token ------------------------------ */
 let accessToken = null;
 let _refreshing = null;
@@ -163,14 +174,38 @@ async function initAuthOnce() {
 }
 initAuthOnce();
 
-/* ------------------------------ Dropbox list ------------------------------ */
+/* ------------------------- Dropbox RPC convenience ------------------------ */
+function authHeadersJSON() {
+  return { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+}
+function contentHeaders(argPathLower) {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    'Dropbox-API-Arg': JSON.stringify({ path: argPathLower }),
+    'Content-Type': 'text/plain',
+  };
+}
+async function downloadText(path_lower, label = 'file') {
+  await ensureAccessToken();
+  const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
+    headers: contentHeaders(path_lower),
+    responseType: 'text',
+    transformResponse: [d => d],
+    validateStatus: s => s < 500
+  });
+  if (r.status !== 200) {
+    throw new Error(`${label} download failed: ${r.status}`);
+  }
+  return r.data;
+}
+
 async function listFolderAll(path_lower) {
   await ensureAccessToken();
   const key = `lf:${path_lower}`;
   const cached = _get(key);
   if (cached) return cached;
 
-  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+  const headers = authHeadersJSON();
   const all = [];
   let resp = await limitRPC(() => AX.post(
     'https://api.dropboxapi.com/2/files/list_folder',
@@ -211,7 +246,6 @@ function filenameFromLinkedImage(link) {
 }
 
 /* -------------------- order+orientation index from sidecars ---------------- */
-// NEW: normalize project text
 function normalizeOrientation(raw) {
   const v = String(raw || '').trim().toLowerCase();
   if (v === 'horizontal' || v === 'landscape') return 'horizontal';
@@ -243,21 +277,8 @@ async function buildOrderIndexFromSidecars(entries) {
 
   await Promise.all(jsonSidecars.map(f => limitContent(async () => {
     try {
-      const dl = await AX.post(
-        'https://content.dropboxapi.com/2/files/download', '',
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Dropbox-API-Arg': JSON.stringify({ path: f.path_lower }),
-            'Content-Type': 'text/plain',
-          },
-          responseType: 'text',
-          transformResponse: [d => d],
-          validateStatus: s => s < 500,
-        }
-      );
-      if (dl.status !== 200) { console.warn('⚠️ Sidecar download failed:', f.name, dl.status); return; }
-      const meta = safeParseJson(dl.data, f.name);
+      const raw = await downloadText(f.path_lower, 'sidecar');
+      const meta = safeParseJson(raw, f.name);
       const ord = toOrderNum(meta?.order_flag);
       const orient = normalizeOrientation(meta?.orientation);
       const proj = (meta?.project ? String(meta.project).trim() : '') || null;
@@ -273,10 +294,7 @@ async function buildOrderIndexFromSidecars(entries) {
         }
       };
 
-      if (!exact) {
-        assign(byBase.get(base(f.name.toLowerCase())) || []);
-        return;
-      }
+      if (!exact) { assign(byBase.get(base(f.name.toLowerCase())) || []); return; }
       if (byLowerName.has(exact)) {
         ordByName[exact] = ord;
         if (orient) orientationByName[exact] = orient;
@@ -293,7 +311,6 @@ async function buildOrderIndexFromSidecars(entries) {
   return { ordByName, zeroNames, orientationByName, projectByName };
 }
 
-// NEW: derive a quick “version” for sidecars: max modified time + count
 function sidecarVersion(entries) {
   const sidecars = (entries || [])
     .filter(e => e['.tag'] === 'file' && isJson(e.name) && e.name !== '_metadata.json');
@@ -335,7 +352,7 @@ async function fetchBaseJpeg(path_lower, size = DEFAULT_THUMB) {
   const hit = _get(key);
   if (hit) return hit;
 
-  const headers  = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+  const headers  = authHeadersJSON();
   const resp = await limitContent(() => AX.post(
     'https://content.dropboxapi.com/2/files/get_thumbnail_v2',
     {
@@ -385,18 +402,18 @@ async function fetchThumbNegotiated(path_lower, size, acceptHdr) {
   const hit = _get(cacheKey);
   if (hit) return { buf: hit, mime: want };
 
-  let base;
+  let baseBuf;
   try {
-    base = await fetchBaseJpeg(path_lower, size);
-  } catch (e) {
+    baseBuf = await fetchBaseJpeg(path_lower, size);
+  } catch {
     const fallbacks = [DEFAULT_THUMB, 'w480h320', 'w256h256'];
     for (const s of fallbacks) {
-      try { base = await fetchBaseJpeg(path_lower, s); break; } catch {}
+      try { baseBuf = await fetchBaseJpeg(path_lower, s); break; } catch {}
     }
-    if (!base) return { buf: null, mime: want };
+    if (!baseBuf) return { buf: null, mime: want };
   }
 
-  const { buf, mime } = await maybeTranscode(base, want);
+  const { buf, mime } = await maybeTranscode(baseBuf, want);
   _set(cacheKey, buf, 3.5 * 60 * 60 * 1000);
   return { buf, mime };
 }
@@ -409,17 +426,27 @@ router.get('/thumb/:b64', async (req, res) => {
 
     const { buf, mime } = await fetchThumbNegotiated(path_lower, size, req.headers['accept'] || '');
     if (buf) {
-      const etag = 'W/"' + crypto.createHash('sha1').update(buf).digest('base64').slice(0, 16) + `"`;
+      const etag = 'W/"' + crypto.createHash('sha1').update(buf).digest('base64').slice(0, 16) + `"`;      
       if (req.headers['if-none-match'] === etag) { res.status(304).end(); return; }
+
+      const hasVersion = typeof req.query.r === 'string' && req.query.r.length > 0;
+
       res.setHeader('Content-Type', mime);
-      res.setHeader('Cache-Control', 'public, max-age=14400, stale-while-revalidate=86400');
       res.setHeader('ETag', etag);
       res.setHeader('Vary', 'Accept');
+
+      // ✅ Long-lived for versioned URLs (fixes Lighthouse cache lifetime warning)
+      if (hasVersion) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=14400, stale-while-revalidate=86400');
+      }
+
       res.send(buf);
       return;
     }
+
     await ensureAccessToken();
-    // fallback: redirect to temp link only if we couldn't thumbnail
     const lr = await AX.post(
       'https://api.dropboxapi.com/2/files/get_temporary_link',
       { path: path_lower },
@@ -434,6 +461,17 @@ router.get('/thumb/:b64', async (req, res) => {
 });
 
 /* =================== FAST project card build & SWR cache ================== */
+// _metadata.json fetch + cache (shared)
+async function getMetadataFromFileCached(metadataFile) {
+  const key = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
+  const hit = _get(key);
+  if (hit) return hit;
+  const raw = await downloadText(metadataFile.path_lower, metadataFile.name);
+  const parsed = safeParseJson(raw, metadataFile.name);
+  _set(key, parsed, 10 * 60 * 1000);
+  return parsed;
+}
+
 async function buildProjectCardFast(folder) {
   const entries = await listFolderAll(folder.path_lower);
 
@@ -441,18 +479,8 @@ async function buildProjectCardFast(folder) {
   const metadataFile = entries.find(e => e['.tag'] === 'file' && e.name === '_metadata.json');
   let metadata = null;
   if (metadataFile) {
-    try {
-      const key = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
-      const hit = _get(key);
-      if (hit) metadata = hit;
-      else {
-        const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
-          headers: { Authorization: `Bearer ${accessToken}`, 'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }), 'Content-Type': 'text/plain' },
-          responseType: 'text', transformResponse: [d => d], validateStatus: s => s < 500
-        });
-        if (r.status === 200) { metadata = safeParseJson(r.data, metadataFile.name); _set(key, metadata, 10 * 60 * 1000); }
-      }
-    } catch (e) { console.warn('⚠️ metadata parse failed:', folder.name, e.response?.data || e.message); }
+    try { metadata = await getMetadataFromFileCached(metadataFile); }
+    catch (e) { console.warn('⚠️ metadata parse failed:', folder.name, e.message); }
   }
 
   // First real image (fast thumbnail proxy)
@@ -552,11 +580,9 @@ async function prewarmTopHomeThumbnails() {
     });
 
     const topSix = valid.slice(0, 6);
-    // For each, decode the path from the thumb URL and warm all 3 mime variants
     await Promise.all(topSix.map(c => limitContent(async () => {
       const p = _decodeThumbPathFromUrl(c.thumbnail || '');
       if (!p) return;
-      // Warm JPEG (Safari), WebP, and AVIF variants in cache
       await Promise.all([
         fetchThumbNegotiated(p, DEFAULT_THUMB, 'image/avif'),
         fetchThumbNegotiated(p, DEFAULT_THUMB, 'image/webp'),
@@ -572,6 +598,60 @@ async function prewarmTopHomeThumbnails() {
 // Kick a prewarm soon after boot, then refresh periodically
 setTimeout(() => { prewarmTopHomeThumbnails(); }, 2500);
 setInterval(() => { prewarmTopHomeThumbnails(); }, 15 * 60 * 1000);
+
+/* ============================= Shared builders ============================ */
+function annotateImages(entries, ordByName, zeroNames, orientationByName = {}, projectByName = {}) {
+  const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
+  return imageEntries
+    .map(e => {
+      const nameLower = (e.name || '').toLowerCase();
+      const ord = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
+        ? ordByName[nameLower]
+        : Infinity;
+      return {
+        entry: e,
+        ord: Number.isFinite(ord) ? ord : Infinity,
+        seq: seqFromName(e.name),
+        t:   safeTime(e.client_modified),
+        isZero: zeroNames.has(nameLower),
+        orient: orientationByName[nameLower] || null,
+        proj:   projectByName[nameLower] || null
+      };
+    })
+    .filter(x => !x.isZero);
+}
+function sortAnnotated(a, b) {
+  if (a.ord !== b.ord) return a.ord - b.ord;
+  if (a.seq !== b.seq) return a.seq - b.seq;
+  if (a.t !== b.t)     return a.t - b.t;
+  return naturalCompare(a.entry.name, b.entry.name);
+}
+async function buildImageObj(entry, ord, orient, proj) {
+  const pathL = entry.path_display || entry.path_lower;
+  const thumb   = makeThumbUrl(pathL, 'w480h320');
+  const display = makeThumbUrl(pathL, 'w1024h768');
+  const large   = makeThumbUrl(pathL, 'w1600h1200');
+  return {
+    url: large,
+    display,
+    thumb,
+    name: entry.name,
+    path: pathL,
+    size: entry.size,
+    client_modified: entry.client_modified,
+    order: Number.isFinite(ord) ? ord : null,
+    is_zero: false,
+    orientation: orient,
+    project: proj || null
+  };
+}
+async function getSidecarIndexForFolder(folder, entries) {
+  const ver = sidecarVersion(entries);
+  const ordKey = `ordidx:${String((folder.path_lower || folder.path_display || '')).toLowerCase()}:${ver}`;
+  let ordIdx = _getOrderIndex(ordKey);
+  if (!ordIdx) { ordIdx = await buildOrderIndexFromSidecars(entries); _setOrderIndex(ordKey, ordIdx); }
+  return ordIdx;
+}
 
 /* ================================ ROUTES ================================= */
 // Home — fast SWR cards
@@ -608,88 +688,25 @@ router.get('/website-photos', async (req, res) => {
 router.get('/files', async (req, res) => {
   try {
     const { path: folderPath = '', debug } = req.query;
-
-    // helpers for robust ordering
-    const seqFromName = (name = '') => {
-      const m = String(name).match(/(?:^|[^\d])(\d{1,6})(?!\d)/);
-      if (!m) return Infinity;
-      const n = parseInt(m[1], 10);
-      return Number.isFinite(n) ? n : Infinity;
-    };
-    const safeTime = (t) => {
-      const n = Date.parse(t || '');
-      return Number.isFinite(n) ? n : Infinity;
-    };
-
     const entries = await listFolderAll(folderPath);
 
-    // NEW: sidecar index cache
-    const ver = sidecarVersion(entries);
-    const ordKey = `ordidx:${String(folderPath || '').toLowerCase()}:${ver}`;
-    let ordIdx = _getOrderIndex(ordKey);
-    if (!ordIdx) { ordIdx = await buildOrderIndexFromSidecars(entries); _setOrderIndex(ordKey, ordIdx); }
-    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } = ordIdx;
+    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } =
+      await getSidecarIndexForFolder({ path_lower: folderPath }, entries);
 
-    const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
+    const annotated = annotateImages(entries, ordByName, zeroNames, orientationByName, projectByName);
+    annotated.sort(sortAnnotated);
 
-    // exclude order=0 and build sorting keys
-    const annotated = imageEntries
-      .map(e => {
-        const nameLower = (e.name || '').toLowerCase();
-        const orderFlag = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
-          ? ordByName[nameLower]
-          : Infinity;
-        const orient = orientationByName[nameLower] || null;
-        const proj   = projectByName[nameLower] || null;
-        return {
-          entry: e,
-          ord: Number.isFinite(orderFlag) ? orderFlag : Infinity, // primary
-          seq: seqFromName(e.name),                               // tiebreak 1
-          t:   safeTime(e.client_modified),                       // tiebreak 2
-          isZero: zeroNames.has(nameLower),
-          orient,
-          proj
-        };
-      })
-      .filter(x => !x.isZero);
-
-    annotated.sort((a, b) => {
-      if (a.ord !== b.ord) return a.ord - b.ord;
-      if (a.seq !== b.seq) return a.seq - b.seq;
-      if (a.t !== b.t)     return a.t - b.t;
-      return naturalCompare(a.entry.name, b.entry.name);
-    });
-
-    // Use proxy for all image sizes — removes get_temporary_link calls
     const images = await Promise.all(
-      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => {
-        try {
-          const pathL = entry.path_display || entry.path_lower;
-          const thumb   = makeThumbUrl(pathL, 'w480h320');
-          const display = makeThumbUrl(pathL, 'w1024h768');
-          const large   = makeThumbUrl(pathL, 'w1600h1200'); // or 'w2048h1536'
-
-          return {
-            url: large,              // full-size via proxy
-            display,                 // mid-size (use this for main image)
-            thumb,                   // small preview
-            name: entry.name,
-            path: pathL,
-            size: entry.size,
-            client_modified: entry.client_modified,
-            order: Number.isFinite(ord) ? ord : null,
-            is_zero: false,
-            orientation: orient,
-            project: proj || null
-          };
-        } catch (err) {
+      annotated.map(({ entry, ord, orient, proj }) => limitRPC(() =>
+        buildImageObj(entry, ord, orient, proj).catch(err => {
           console.error('⚠️ Error building file entry:', entry.name, err.response?.data || err.message);
           return null;
-        }
-      }))
+        })
+      ))
     );
 
     if (String(debug) === '1') {
+      const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
       const allImageNames = imageEntries.map(e => e.name);
       return res.json({
         images: images.filter(Boolean),
@@ -750,24 +767,7 @@ router.get('/by-category', async (req, res) => {
         );
         if (!metadataFile) continue;
 
-        const cacheKey = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
-        let meta = _get(cacheKey);
-        if (!meta) {
-          const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
-              'Content-Type': 'text/plain'
-            },
-            responseType: 'text',
-            transformResponse: [d => d],
-            validateStatus: s => s < 500
-          });
-          if (r.status !== 200) continue;
-          meta = safeParseJson(r.data, metadataFile.name);
-          _set(cacheKey, meta, 10 * 60 * 1000);
-        }
-
+        const meta = await getMetadataFromFileCached(metadataFile);
         const cat = String(meta?.category || '').toLowerCase().trim();
         if (cat && cat === wantCat) {
           matchFolder = { folder, entries };
@@ -785,83 +785,26 @@ router.get('/by-category', async (req, res) => {
     // 3) Build images for THAT folder only (same logic as /files)
     const { folder, entries } = matchFolder;
 
-    // NEW: sidecar index cache
-    const ver = sidecarVersion(entries);
-    const ordKey = `ordidx:${String(folder.path_lower || folder.path_display || '').toLowerCase()}:${ver}`;
-    let ordIdx = _getOrderIndex(ordKey);
-    if (!ordIdx) { ordIdx = await buildOrderIndexFromSidecars(entries); _setOrderIndex(ordKey, ordIdx); }
-    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } = ordIdx;
+    const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } =
+      await getSidecarIndexForFolder(folder, entries);
 
-    const imageEntries = (entries || []).filter(e => e['.tag'] === 'file' && isImage(e.name));
+    const annotated = annotateImages(entries, ordByName, zeroNames, orientationByName, projectByName);
+    annotated.sort(sortAnnotated);
 
-    const seqFromName = (name = '') => {
-      const m = String(name).match(/(?:^|[^\d])(\d{1,6})(?!\d)/);
-      if (!m) return Infinity;
-      const n = parseInt(m[1], 10);
-      return Number.isFinite(n) ? n : Infinity;
-    };
-    const safeTime = (t) => {
-      const n = Date.parse(t || '');
-      return Number.isFinite(n) ? n : Infinity;
-    };
-
-    const annotated = imageEntries
-      .map(e => {
-        const nameLower = (e.name || '').toLowerCase();
-        const ord = Object.prototype.hasOwnProperty.call(ordByName, nameLower)
-          ? ordByName[nameLower]
-          : Infinity;
-        return {
-          entry: e,
-          ord: Number.isFinite(ord) ? ord : Infinity,
-          seq: seqFromName(e.name),
-          t:   safeTime(e.client_modified),
-          isZero: zeroNames.has(nameLower),
-          orient: orientationByName[nameLower] || null,
-          proj:   projectByName[nameLower] || null
-        };
-      })
-      .filter(x => !x.isZero);
-
-    annotated.sort((a, b) => {
-      if (a.ord !== b.ord) return a.ord - b.ord;
-      if (a.seq !== b.seq) return a.seq - b.seq;
-      if (a.t !== b.t)     return a.t - b.t;
-      return naturalCompare(a.entry.name, b.entry.name);
-    });
-
-    // Use proxy sizes; remove temp-link calls
     const images = await Promise.all(
-      annotated.map(({ entry, ord, orient, proj }) => limitRPC(async () => {
-        try {
-          const pathL = entry.path_display || entry.path_lower;
-          const thumb   = makeThumbUrl(pathL, 'w480h320');
-          const display = makeThumbUrl(pathL, 'w1024h768');
-          const large   = makeThumbUrl(pathL, 'w1600h1200');
-
-          return {
-            url: large,
-            display,
-            thumb,
-            name: entry.name,
-            path: pathL,
-            size: entry.size,
-            client_modified: entry.client_modified,
-            order: Number.isFinite(ord) ? ord : null,
-            is_zero: false,
-            orientation: orient,
-            project: proj || null,
-            folder: {
-              id: folder.id,
-              name: folder.name,
-              path: folder.path_display || folder.path_lower
-            }
-          };
-        } catch (err) {
+      annotated.map(({ entry, ord, orient, proj }) => limitRPC(() =>
+        buildImageObj(entry, ord, orient, proj).then(obj => ({
+          ...obj,
+          folder: {
+            id: folder.id,
+            name: folder.name,
+            path: folder.path_display || folder.path_lower
+          }
+        })).catch(err => {
           console.error('⚠️ temp build failed:', entry.name, err.response?.data || err.message);
           return null;
-        }
-      }))
+        })
+      ))
     );
 
     const payload = {
@@ -912,24 +855,7 @@ router.get('/folder-by-category', async (req, res) => {
         );
         if (!metadataFile) continue;
 
-        const cacheKey = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
-        let meta = _get(cacheKey);
-        if (!meta) {
-          const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
-              'Content-Type': 'text/plain'
-            },
-            responseType: 'text',
-            transformResponse: [d => d],
-            validateStatus: s => s < 500
-          });
-          if (r.status !== 200) continue;
-          meta = safeParseJson(r.data, metadataFile.name);
-          _set(cacheKey, meta, 10 * 60 * 1000);
-        }
-
+        const meta = await getMetadataFromFileCached(metadataFile);
         const cat = String(meta?.category || '').toLowerCase().trim();
         if (!cat) continue;
 
@@ -958,7 +884,7 @@ router.get('/folder-by-category', async (req, res) => {
   }
 });
 
-/* ------------------------ NEW: Project -> Folder resolver ----------------- */
+/* ------------------------ Project -> Folder resolver ---------------------- */
 router.get('/folder-by-project', async (req, res) => {
   try {
     const rawProj = String(req.query.project || '').trim();
@@ -995,24 +921,7 @@ router.get('/folder-by-project', async (req, res) => {
           const metadataFile = entries.find(e => e['.tag'] === 'file' && e.name === '_metadata.json');
           if (!metadataFile) continue;
 
-          const cacheKey = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
-          let meta = _get(cacheKey);
-          if (!meta) {
-            const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Dropbox-API-Arg': JSON.stringify({ path: metadataFile.path_lower }),
-                'Content-Type': 'text/plain'
-              },
-              responseType: 'text',
-              transformResponse: [d => d],
-              validateStatus: s => s < 500
-            });
-            if (r.status !== 200) continue;
-            meta = safeParseJson(r.data, metadataFile.name);
-            _set(cacheKey, meta, 10 * 60 * 1000);
-          }
-
+          const meta = await getMetadataFromFileCached(metadataFile);
           const title = norm(meta?.title || '');
           if (title && title === want) { target = folder; break; }
         } catch (e) {

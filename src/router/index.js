@@ -1,30 +1,34 @@
 /* eslint-disable prettier/prettier */
-import {
-  createRouter,
-  createWebHashHistory
-} from "vue-router";
-import HomeView from "../views/HomeView.vue";
+import { createRouter, createWebHashHistory } from "vue-router";
 
-const routes = [{
+// Keep your routes the same, just lazy-load them (cuts TBT)
+const HomeView     = () => import("../views/HomeView.vue");
+const WorkGallery  = () => import("@/views/WorkGallery.vue");
+const FolderView   = () => import("../views/FolderView.vue");
+const AboutView    = () => import("../views/AboutView.vue");
+const ContactView  = () => import("../views/Contact.vue");
+
+const routes = [
+  {
     path: "/",
     name: "home",
     component: HomeView,
   },
   {
-    path: '/work/:category',
-    name: 'work-category',
-    component: () => import('@/views/WorkGallery.vue'),
-    props: true
+    path: "/work/:category",
+    name: "work-category",
+    component: WorkGallery,
+    props: true,
   },
   {
     path: "/folder/:folderName",
     name: "folder",
-    component: () => import("../views/FolderView.vue"),
+    component: FolderView,
   },
   {
     path: "/about",
     name: "about",
-    component: () => import("../views/AboutView.vue"),
+    component: AboutView,
   },
   // {
   //   path: "/shop",
@@ -34,13 +38,30 @@ const routes = [{
   {
     path: "/contact",
     name: "contact",
-    component: () => import("../views/Contact.vue"),
+    component: ContactView,
   },
+  // optional catch-all
+  // { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
+  scrollBehavior() {
+    return { top: 0 };
+  },
+});
+
+/**
+ * After each navigation, store hero preload candidates so
+ * public/index.html can <preload> them BEFORE Vue boots on the next page.
+ * (Your views set window.__LCP_CANDIDATES__ when they know the first image.)
+ */
+router.afterEach(() => {
+  try {
+    const cand = (window.__LCP_CANDIDATES__ || []).filter(Boolean);
+    localStorage.setItem("__LCP_NEXT__", JSON.stringify(cand));
+  } catch {}
 });
 
 export default router;
