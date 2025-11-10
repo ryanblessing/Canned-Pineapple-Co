@@ -1,9 +1,13 @@
-// routes/dropbox.js — fast cards, negotiated thumbnails (AVIF/WEBP/JPEG), correct gallery sorting + orientation
+// dropboxRoutes.js — fast cards, negotiated thumbnails (AVIF/WEBP/JPEG), correct gallery sorting + orientation
 const express = require('express');
 const axios = require('axios');
 const https = require('https');
 const crypto = require('crypto');
-require('dotenv').config();
+
+// Force .env to override host/shell vars for this module too
+require('dotenv').config({ override: true });
+
+const { getAccessToken } = require('./dropboxToken');
 
 // Optional relaxed JSON fallback
 let JSON5 = null; try { JSON5 = require('json5'); } catch {}
@@ -121,74 +125,21 @@ const safeTime = (t) => {
   return Number.isFinite(n) ? n : Infinity;
 };
 
-/* ----------------------------- Dropbox token ------------------------------ */
-let accessToken = null;
-let _refreshing = null;
-
-// single-process global guards (survive duplicate requires)
-const INIT_FLAG_KEY = '__DROPBOX_ROUTER_INIT__';
-const TIMER_KEY     = '__DROPBOX_TOKEN_TIMER__';
-// debounce log to reduce duplicate-startup noise
-let _lastTokenLog = 0;
-
-async function refreshAccessToken() {
-  if (_refreshing) return _refreshing;
-  _refreshing = (async () => {
-    try {
-      const resp = await AX.post('https://api.dropboxapi.com/oauth2/token', null, {
-        params: {
-          grant_type: 'refresh_token',
-          refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
-          client_id: process.env.DROPBOX_CLIENT_ID,
-          client_secret: process.env.DROPBOX_CLIENT_SECRET,
-        },
-      });
-      const newToken = resp.data.access_token;
-      if (newToken && newToken !== accessToken) {
-        accessToken = newToken;
-        const now = Date.now();
-        if (now - _lastTokenLog > 2000) {
-          console.log('🔁 Dropbox access token refreshed');
-          _lastTokenLog = now;
-        }
-      }
-    } catch (err) {
-      console.error('❌ Token refresh failed:', err.response?.data || err.message);
-    } finally {
-      _refreshing = null;
-    }
-  })();
-  return _refreshing;
-}
-async function ensureAccessToken() {
-  if (accessToken) return;
-  await refreshAccessToken();
-}
-async function initAuthOnce() {
-  if (global[INIT_FLAG_KEY]) return;
-  global[INIT_FLAG_KEY] = true;
-  await refreshAccessToken();
-  if (!global[TIMER_KEY]) {
-    global[TIMER_KEY] = setInterval(refreshAccessToken, 2 * 60 * 60 * 1000);
-  }
-}
-initAuthOnce();
-
 /* ------------------------- Dropbox RPC convenience ------------------------ */
-function authHeadersJSON() {
-  return { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+function authHeadersJSON(token) {
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
-function contentHeaders(argPathLower) {
+function contentHeaders(token, argPathLower) {
   return {
-    Authorization: `Bearer ${accessToken}`,
+    Authorization: `Bearer ${token}`,
     'Dropbox-API-Arg': JSON.stringify({ path: argPathLower }),
     'Content-Type': 'text/plain',
   };
 }
 async function downloadText(path_lower, label = 'file') {
-  await ensureAccessToken();
+  const token = await getAccessToken();
   const r = await AX.post('https://content.dropboxapi.com/2/files/download', '', {
-    headers: contentHeaders(path_lower),
+    headers: contentHeaders(token, path_lower),
     responseType: 'text',
     transformResponse: [d => d],
     validateStatus: s => s < 500
@@ -200,12 +151,12 @@ async function downloadText(path_lower, label = 'file') {
 }
 
 async function listFolderAll(path_lower) {
-  await ensureAccessToken();
+  const token = await getAccessToken();
   const key = `lf:${path_lower}`;
   const cached = _get(key);
   if (cached) return cached;
 
-  const headers = authHeadersJSON();
+  const headers = authHeadersJSON(token);
   const all = [];
   let resp = await limitRPC(() => AX.post(
     'https://api.dropboxapi.com/2/files/list_folder',
@@ -345,14 +296,13 @@ function makeThumbUrl(path_lower, size = DEFAULT_THUMB) {
   return `/api/dropbox/thumb/${b64}?s=${encodeURIComponent(size)}`;
 }
 
-// Fetch a small JPEG from Dropbox (base), cache per (size, path)
 async function fetchBaseJpeg(path_lower, size = DEFAULT_THUMB) {
-  await ensureAccessToken();
+  const token = await getAccessToken();
   const key = `thumb:jpeg:${size}:${path_lower}`;
   const hit = _get(key);
   if (hit) return hit;
 
-  const headers  = authHeadersJSON();
+  const headers  = authHeadersJSON(token);
   const resp = await limitContent(() => AX.post(
     'https://content.dropboxapi.com/2/files/get_thumbnail_v2',
     {
@@ -426,7 +376,7 @@ router.get('/thumb/:b64', async (req, res) => {
 
     const { buf, mime } = await fetchThumbNegotiated(path_lower, size, req.headers['accept'] || '');
     if (buf) {
-      const etag = 'W/"' + crypto.createHash('sha1').update(buf).digest('base64').slice(0, 16) + `"`;      
+      const etag = 'W/"' + crypto.createHash('sha1').update(buf).digest('base64').slice(0, 16) + `"`;
       if (req.headers['if-none-match'] === etag) { res.status(304).end(); return; }
 
       const hasVersion = typeof req.query.r === 'string' && req.query.r.length > 0;
@@ -435,7 +385,6 @@ router.get('/thumb/:b64', async (req, res) => {
       res.setHeader('ETag', etag);
       res.setHeader('Vary', 'Accept');
 
-      // ✅ Long-lived for versioned URLs (fixes Lighthouse cache lifetime warning)
       if (hasVersion) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       } else {
@@ -446,11 +395,11 @@ router.get('/thumb/:b64', async (req, res) => {
       return;
     }
 
-    await ensureAccessToken();
+    const token = await getAccessToken();
     const lr = await AX.post(
       'https://api.dropboxapi.com/2/files/get_temporary_link',
       { path: path_lower },
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
     );
     if (lr.data?.link) { res.setHeader('Cache-Control', 'no-store'); res.redirect(302, lr.data.link); }
     else { res.status(502).end(); }
@@ -461,7 +410,6 @@ router.get('/thumb/:b64', async (req, res) => {
 });
 
 /* =================== FAST project card build & SWR cache ================== */
-// _metadata.json fetch + cache (shared)
 async function getMetadataFromFileCached(metadataFile) {
   const key = `meta:${metadataFile.path_lower}:${metadataFile.client_modified || metadataFile.server_modified || ''}`;
   const hit = _get(key);
@@ -475,7 +423,6 @@ async function getMetadataFromFileCached(metadataFile) {
 async function buildProjectCardFast(folder) {
   const entries = await listFolderAll(folder.path_lower);
 
-  // _metadata.json (cheap)
   const metadataFile = entries.find(e => e['.tag'] === 'file' && e.name === '_metadata.json');
   let metadata = null;
   if (metadataFile) {
@@ -483,7 +430,6 @@ async function buildProjectCardFast(folder) {
     catch (e) { console.warn('⚠️ metadata parse failed:', folder.name, e.message); }
   }
 
-  // First real image (fast thumbnail proxy)
   const firstImg = (entries || []).find(e => e['.tag'] === 'file' && isImage(e.name));
   const thumb = firstImg ? makeThumbUrl(firstImg.path_lower || firstImg.path_display, DEFAULT_THUMB) : null;
 
@@ -545,10 +491,9 @@ async function getProjectCard(folder) {
 }
 
 /* =========================== HOME THUMB PREWARM =========================== */
-// Decode the path from our /thumb/:b64 URLs so we can prewarm by path
 function _decodeThumbPathFromUrl(url = '') {
   try {
-    const u = new URL(url, 'http://localhost'); // base only to parse
+    const u = new URL(url, 'http://localhost');
     const m = u.pathname.match(/\/thumb\/([^/]+)$/) || u.pathname.match(/\/thumb\/([^/]+)\//) || u.pathname.match(/\/thumb\/([^?]+)/);
     const b64 = (m && m[1]) ? m[1] : null;
     if (!b64) return null;
@@ -562,7 +507,6 @@ async function prewarmTopHomeThumbnails() {
   if (_prewarming) return;
   _prewarming = true;
   try {
-    // Mimic /website-photos sorting to pick the same top 6
     const root = await listFolderAll('');
     const website = root.find(e => e.name === 'Website Photos' && e['.tag'] === 'folder');
     if (!website) return;
@@ -595,7 +539,6 @@ async function prewarmTopHomeThumbnails() {
     _prewarming = false;
   }
 }
-// Kick a prewarm soon after boot, then refresh periodically
 setTimeout(() => { prewarmTopHomeThumbnails(); }, 2500);
 setInterval(() => { prewarmTopHomeThumbnails(); }, 15 * 60 * 1000);
 
@@ -733,8 +676,8 @@ router.get('/files', async (req, res) => {
 });
 
 /* ------------------------------- By-category ------------------------------ */
-/* Resolve the category to ONE folder via _metadata.json.category,
-   then populate images from that SAME folder (exactly like /files). */
+const CATMAP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 router.get('/by-category', async (req, res) => {
   const t0 = Date.now();
   try {
@@ -744,7 +687,6 @@ router.get('/by-category', async (req, res) => {
 
     const wantCat = rawCat.toLowerCase().replace(/-/g, ' ').trim();
 
-    // 1) Find "Website Photos" root
     const rootEntries = await listFolderAll('');
     const websitePhotosFolder = rootEntries.find(
       e => e.name === 'Website Photos' && e['.tag'] === 'folder'
@@ -753,7 +695,6 @@ router.get('/by-category', async (req, res) => {
       return res.status(404).json({ error: 'Website Photos folder not found' });
     }
 
-    // 2) Scan immediate subfolders to find the ONE whose _metadata.json.category matches
     const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
     const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
 
@@ -782,7 +723,6 @@ router.get('/by-category', async (req, res) => {
       return res.status(404).json({ error: `No folder found for category "${rawCat}"` });
     }
 
-    // 3) Build images for THAT folder only (same logic as /files)
     const { folder, entries } = matchFolder;
 
     const { ordByName, zeroNames, orientationByName = {}, projectByName = {} } =
@@ -820,8 +760,6 @@ router.get('/by-category', async (req, res) => {
 });
 
 /* ------------------------ Category -> Folder resolver --------------------- */
-const CATMAP_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
 router.get('/folder-by-category', async (req, res) => {
   try {
     const rawCat = String(req.query.category || '').trim();
@@ -829,12 +767,10 @@ router.get('/folder-by-category', async (req, res) => {
 
     const wantCat = rawCat.toLowerCase().replace(/-/g, ' ').trim();
 
-    // cached?
     const ck = `catmap:${wantCat}`;
     const cached = _get(ck);
     if (cached) return res.json(cached);
 
-    // find "Website Photos"
     const rootEntries = await listFolderAll('');
     const websitePhotosFolder = rootEntries.find(
       e => e.name === 'Website Photos' && e['.tag'] === 'folder'
@@ -843,7 +779,6 @@ router.get('/folder-by-category', async (req, res) => {
       return res.status(404).json({ error: 'Website Photos folder not found' });
     }
 
-    // iterate immediate subfolders (projects)
     const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
     const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
 
@@ -897,7 +832,6 @@ router.get('/folder-by-project', async (req, res) => {
     const cached = _get(ck);
     if (cached) return res.json(cached);
 
-    // find "Website Photos"
     const rootEntries = await listFolderAll('');
     const websitePhotosFolder = rootEntries.find(
       e => e.name === 'Website Photos' && e['.tag'] === 'folder'
@@ -906,7 +840,6 @@ router.get('/folder-by-project', async (req, res) => {
       return res.status(404).json({ error: 'Website Photos folder not found' });
     }
 
-    // iterate immediate subfolders (projects)
     const projectEntries = await listFolderAll(websitePhotosFolder.path_lower);
     const projectFolders = projectEntries.filter(e => e['.tag'] === 'folder');
 
