@@ -118,10 +118,12 @@ defineProps({
   line-height: 1.2;
 }
 
-/* HOME tagline */
+/* HOME tagline (desktop defaults) */
 .home-header-text {
-  margin: 0;
+  display: block;
+  margin: 0 auto;
   width: 100%;
+  max-width: 62rem;
   line-height: 1.15;
   color: var(--brand);
   text-align: center;
@@ -130,6 +132,8 @@ defineProps({
   text-transform: uppercase;
   font-size: clamp(16px, 1.6vw, 21px);
   letter-spacing: 0.5px;
+  padding: 10px 12px;           /* some breathing room even on desktop */
+  text-wrap: balance;
 }
 
 @media (max-width: 1350px) {
@@ -139,6 +143,7 @@ defineProps({
   .home-header-text { font-size: clamp(14px, 1.4vw, 18px); }
 }
 
+/* Folder text sizing */
 .description-section .header-text,
 .services-section .header-text {
   font-size: var(--rsz);
@@ -150,13 +155,10 @@ defineProps({
 }
 
 /* ======================= EARLY RELIEF BEFORE STACKING ======================= */
-/* Add vertical padding sooner (<=1500 & <=1350) so text never feels tight */
 @media (max-width: 1500px) {
   .header-content { min-height: 90px; }
   .header-text { font-size: 14px; }
   .title-text { font-size: 1.25rem; }
-
-  /* give a bit of vertical air without changing layout yet */
   .header-section { height: auto; padding-block: var(--pad-y); }
 }
 
@@ -164,8 +166,6 @@ defineProps({
   .header-content { min-height: 85px; }
   .header-text { font-size: 13px; }
   .title-text { font-size: 1.1rem; }
-
-  /* keep margins/padding so borders never touch text */
   .description-section { padding: var(--pad-y) 14px; }
   .services-section    { padding: var(--pad-y) var(--gap-x); }
 }
@@ -178,12 +178,21 @@ defineProps({
 }
 
 /* ======================= EARLIER STACK (≤1200px) ======================= */
-/* This used to be 1024px — moving to 1200px so it breaks sooner */
 @media (max-width: 1200px) {
   .header-content {
     display: block !important;
     min-height: unset !important;
     isolation: isolate;
+  }
+
+  /* 🔸 HOME: add comfortable spacing around the tagline when stacked */
+  .home-header-text {
+    max-width: 40rem;
+    padding: 16px 18px;         /* more padding on mobile */
+    margin: 6px auto 10px;
+    line-height: 1.35;
+    font-size: clamp(13px, 3.4vw, 16px);
+    letter-spacing: 0.04em;
   }
 
   .header-section {
@@ -241,6 +250,15 @@ defineProps({
     font-family: var(--font-gotham-medium) !important;
     font-weight: 600 !important;
     font-size: var(--nav-title-size) !important;
+  }
+}
+
+/* Extra-small phones */
+@media (max-width: 420px) {
+  .home-header-text {
+    padding: 18px 20px;
+    font-size: clamp(12px, 4vw, 15px);
+    line-height: 1.4;
   }
 }
 </style>
