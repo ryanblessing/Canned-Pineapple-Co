@@ -39,7 +39,7 @@ import ContactImage from '../assets/contact-logo.png';
 .contact-logo {
   max-width: 275px;
   height: auto;
-  margin-top: 2rem;
+  margin-top: 8rem;
 }
 
 .contact-info {

@@ -12,10 +12,14 @@ import * as directives from 'vuetify/directives'
 const vuetify = createVuetify({
   components,
   directives,
-  theme: {
-    defaultTheme: 'light'
-  }
+  theme: { defaultTheme: 'light' }
 })
+
+// ✅ Auto-fix legacy hash URLs
+if (window.location.hash && window.location.hash.startsWith("#/")) {
+  const cleanPath = window.location.hash.slice(1);
+  window.history.replaceState(null, "", cleanPath);
+}
 
 const app = createApp(App)
   .use(store)

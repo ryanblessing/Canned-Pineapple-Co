@@ -28,7 +28,7 @@
           </p>
           
           <p class="text-body-1" style="font-family: var(--font-gotham);">
-            Based in Nashville, TN, we bring our work to life across the country—collaborating with businesses, brands, and communities to create art that connects and inspires. Whether it's a storefront that needs timeless gold leaf lettering or a statement mural that turns heads, we design with purpose and passion.
+            Based in Nashville, TN and San Luis Obispo, CA, we bring our work to life across the country—collaborating with businesses, brands, and communities to create art that connects and inspires. Whether it's a storefront that needs timeless gold leaf lettering or a statement mural that turns heads, we design with purpose and passion.
           </p>
         </div>
       </v-col>
@@ -115,11 +115,13 @@ import PageHeader from '@/components/PageHeader.vue';
 
 .about-image {
   border-radius: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: none !important;
   width: 100%;
-  /* max-height: 80vh; */
   object-fit: cover;
+
 }
+
+
 
 
 h1 {

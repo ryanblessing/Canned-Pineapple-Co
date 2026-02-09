@@ -1,6 +1,5 @@
 <template>
   <v-container fluid class="home-container">
-    <!-- ✅ Page header back -->
     <PageHeader />
 
     <main>
@@ -31,7 +30,13 @@
                 @load="markLoaded(idx)"
                 @error="markLoaded(idx)"
               />
+
               <div class="folder-overlay"></div>
+
+              <!-- Hover title -->
+              <div class="folder-title">
+                {{ folder.metadata?.title || folder.name }}
+              </div>
             </router-link>
           </div>
         </div>
@@ -58,13 +63,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import PageHeader from '@/components/PageHeader.vue'  // ✅ import
+import PageHeader from '@/components/PageHeader.vue'
 
-/* ---------------- constants ---------------- */
 const FIRST6_COUNT   = 6
 const REM_BATCH_SIZE = 12
 
-/* ---------------- state ---------------- */
 const loading        = ref(true)
 const error          = ref(null)
 const folders        = ref([])
@@ -72,7 +75,6 @@ const visibleFolders = ref([])
 const loadedMap      = ref({})
 let startedRemainder = false
 
-/* ---------------- helpers ---------------- */
 const isLoaded   = idx => !!loadedMap.value[idx]
 const markLoaded = idx => { loadedMap.value[idx] = true }
 
@@ -89,12 +91,22 @@ function enrichFolder (folder) {
     }
   }
 }
+
 const withSize = (url, size) => {
   if (!url) return '/placeholder.jpg'
-  try { const u = new URL(url, window.location.origin); u.searchParams.set('s', size); return u.toString() }
-  catch { return url.includes('?') ? url.replace(/([?&])s=[^&]+/, `$1s=${size}`) : `${url}?s=${size}` }
+  try {
+    const u = new URL(url, window.location.origin)
+    u.searchParams.set('s', size)
+    return u.toString()
+  } catch {
+    return url.includes('?')
+      ? url.replace(/([?&])s=[^&]+/, `$1s=${size}`)
+      : `${url}?s=${size}`
+  }
 }
+
 const sized = (url, size) => withSize(url, size)
+
 const srcsetFor = (url) => {
   if (!url) url = '/placeholder.jpg'
   const R320='w320h240', R640='w640h480', R768='w768h512', R1024='w1024h768', R1600='w1600h1200'
@@ -106,6 +118,7 @@ const srcsetFor = (url) => {
     `${withSize(url, R1600)} 1600w`,
   ].join(', ')
 }
+
 const sizesForGrid = '(min-width: 1025px) 33vw, 50vw'
 
 function preconnectOnce () {
@@ -118,6 +131,7 @@ function preconnectOnce () {
     document.head.appendChild(link)
   } catch {}
 }
+
 function preloadImage (href, imagesrcset, imagesizes) {
   try {
     const link = document.createElement('link')
@@ -125,12 +139,18 @@ function preloadImage (href, imagesrcset, imagesizes) {
     link.as  = 'image'
     link.href = href
     if (imagesrcset) link.setAttribute('imagesrcset', imagesrcset)
-    if (imagesizes)  link.setAttribute('imagesizes',  imagesizes)
+    if (imagesizes)  link.setAttribute('imagesizes', imagesizes)
     document.head.appendChild(link)
   } catch {}
 }
+
 function warm (href) {
-  try { const img = new Image(); img.decoding = 'sync'; img.loading = 'eager'; img.src = href } catch {}
+  try {
+    const img = new Image()
+    img.decoding = 'sync'
+    img.loading = 'eager'
+    img.src = href
+  } catch {}
 }
 
 function startRemainderBatches (items) {
@@ -147,7 +167,6 @@ function startRemainderBatches (items) {
   requestAnimationFrame(step)
 }
 
-/* ---------------- fetch ---------------- */
 async function fetchFolders () {
   loading.value = true
   error.value   = null
@@ -159,8 +178,12 @@ async function fetchFolders () {
   try {
     preconnectOnce()
 
-    const res = await fetch('/api/dropbox/website-photos', { headers: { Accept: 'application/json' }, cache: 'no-store' })
+    const res = await fetch('/api/dropbox/website-photos', {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
     const data = await res.json()
     const list = Array.isArray(data) ? data.map(enrichFolder) : []
 
@@ -196,20 +219,81 @@ onMounted(fetchFolders)
 .folder-link    { display: block; text-decoration: none; }
 
 /* skeleton */
-.skeleton { position: absolute; inset: 0; background: linear-gradient(90deg,rgba(0,0,0,0.06) 25%,rgba(0,0,0,0.10) 37%,rgba(0,0,0,0.06) 63%); background-size: 400% 100%; animation: shimmer 1.2s ease-in-out infinite; }
+.skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.06) 25%,
+    rgba(0,0,0,0.10) 37%,
+    rgba(0,0,0,0.06) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
 @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
 /* image */
-.folder-thumbnail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important; transition: opacity .25s ease; opacity: 0; }
+.folder-thumbnail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0 !important;
+  transition: opacity .25s ease, filter .25s ease;
+  opacity: 0;
+}
+
 .project-card.loaded .skeleton { display: none; }
 .project-card.loaded .folder-thumbnail { opacity: 1; }
 
-.folder-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0); opacity: 0; transition: opacity 0.25s ease, background 0.25s ease; pointer-events: none; z-index: 2; }
-.card-container:hover .folder-overlay { background: rgba(255,255,255,0.15); opacity: 1; }
+/* overlay (dark + heavier on hover) */
+.folder-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0); /* start clear */
+  opacity: 0;
+  transition: opacity 0.25s ease, background 0.25s ease;
+  pointer-events: none;
+  z-index: 2;
+}
 
-/* states */
-.loading { text-align: center; padding: 2rem; color: #666; font-size: 1.1rem; }
-.error   { text-align: center; padding: 2rem; color: #ff4444; }
+.folder-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+
+  font-family: var(--font-gotham-medium);
+  font-weight: 900;
+  font-size: 1.3rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+
+  color: #000;
+  z-index: 3;
+
+  pointer-events: none;
+  transition: opacity .2s ease;
+
+  /* fade behavior only */
+  opacity: 0;
+  background: none;
+}
+
+.card-container:hover .folder-title {
+  opacity: 1;
+}
+
+/* light white wash on hover (does NOT affect title) */
+.card-container:hover .folder-overlay {
+  background: #fff;
+  opacity: 0.5; 
+}
+
 
 /* responsive */
 @media (max-width: 1350px) { .project-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } }

@@ -35,7 +35,7 @@ defineProps({
   folderDescription: { type: String, default: '' },
   folderName: { type: String, default: '' },
   folderServices: { type: String, default: '' },
-});
+})
 </script>
 
 <style scoped>
@@ -43,34 +43,43 @@ defineProps({
 .header-content {
   --brand: #3e2723;
   --border-w: 0.12rem;
+
   --title-fixed: 210px;
   --gap-x: 10px;
-  --nav-title-size: 18px;
-  --rsz: clamp(10px, 1.1vw, 14px);
 
-  /* vertical padding used when space gets tight before stacking */
-  --pad-y: clamp(8px, 1.1vw, 16px);
+  /* LOCKED HEIGHTS (pre-stack) */
+  --header-h: 100px;
+  --section-h: 75px;
+
+  --nav-title-size: 18px;
+
+  --rsz: clamp(10px, 1.1vw, 14px);
 }
 
-/* ======================= Desktop ======================= */
+/* ======================= Desktop / Pre-stack ======================= */
 .header-content {
   display: flex;
   align-items: center;
   width: 100%;
   padding: 0;
-  min-height: 100px;
+
+  height: var(--header-h);
+  min-height: var(--header-h);
+
   border-top: var(--border-w) solid var(--brand);
   border-bottom: var(--border-w) solid var(--brand);
+  box-sizing: border-box;
 }
 
 .header-section {
   display: flex;
   align-items: center;
-  height: 75px;
   box-sizing: border-box;
   padding: 0;
+  height: var(--section-h);
 }
 
+/* Columns */
 .title-section {
   flex: 0 0 var(--title-fixed);
   width: var(--title-fixed);
@@ -83,9 +92,9 @@ defineProps({
   text-align: left;
   border-right: var(--border-w) solid var(--brand);
   border-left: var(--border-w) solid var(--brand);
-  flex: 0 0 60%;
-  width: 60%;
-  padding: 0 17px; /* horizontal padding */
+  flex: 1 1 auto;
+  width: auto;
+  padding: 0 17px;
 }
 
 .services-section {
@@ -142,46 +151,18 @@ defineProps({
 .description-section .header-text,
 .services-section .header-text {
   font-size: var(--rsz);
-  line-height: 1.4;
+  line-height: 1.2;
   white-space: normal;
   word-break: normal;
   overflow-wrap: break-word;
   hyphens: auto;
 }
 
-/* ======================= EARLY RELIEF BEFORE STACKING ======================= */
-/* Add vertical padding sooner (<=1500 & <=1350) so text never feels tight */
-@media (max-width: 1500px) {
-  .header-content { min-height: 90px; }
-  .header-text { font-size: 14px; }
-  .title-text { font-size: 1.25rem; }
-
-  /* give a bit of vertical air without changing layout yet */
-  .header-section { height: auto; padding-block: var(--pad-y); }
-}
-
-@media (max-width: 1350px) {
-  .header-content { min-height: 85px; }
-  .header-text { font-size: 13px; }
-  .title-text { font-size: 1.1rem; }
-
-  /* keep margins/padding so borders never touch text */
-  .description-section { padding: var(--pad-y) 14px; }
-  .services-section    { padding: var(--pad-y) var(--gap-x); }
-}
-
-@media (max-width: 1150px) {
-  .title-section { flex: 0 0 25%; width: 25%; }
-  .description-section { flex: 0 0 50%; width: 50%; }
-  .services-section { flex: 0 0 25%; width: 25%; }
-  .header-text { font-size: 0.75rem; }
-}
-
-/* ======================= EARLIER STACK (≤1200px) ======================= */
-/* This used to be 1024px — moving to 1200px so it breaks sooner */
+/* ======================= STACK (≤1200px) ======================= */
 @media (max-width: 1200px) {
   .header-content {
     display: block !important;
+    height: auto !important;
     min-height: unset !important;
     isolation: isolate;
   }
@@ -234,7 +215,7 @@ defineProps({
   .services-section .header-text {
     text-transform: uppercase !important;
     font-size: clamp(12px, 2.7vw, 13.5px) !important;
-    line-height: 1.45 !important;
+    line-height: 1.2 !important;
   }
 
   .title-text {

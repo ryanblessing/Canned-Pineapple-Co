@@ -1,6 +1,9 @@
 <template>
   <v-container fluid class="home-container">
     <main>
+      <!-- TOP BORDER LINE (matches footer) -->
+      <div class="work-top-line"></div>
+
       <div v-if="!loading && !error" class="project-grid">
         <div
           v-for="(img, idx) in visibleImages"
@@ -20,8 +23,8 @@
               :loading="idx < FIRST6_COUNT ? 'eager' : 'lazy'"
               :decoding="idx < FIRST6_COUNT ? 'sync' : 'async'"
               :fetchpriority="idx < FIRST6_COUNT ? 'high' : 'low'"
-              @load="markLoaded(keyFor(img, idx))"
-              @error="markLoaded(keyFor(img, idx))"
+              @load="markLoaded(keyFor(img, idx), idx)"
+              @error="markLoaded(keyFor(img, idx), idx)"
             />
             <div class="folder-overlay"></div>
           </div>
@@ -57,16 +60,20 @@ const REM_BATCH_SIZE = 12
 const route  = useRoute()
 const router = useRouter()
 
-const loading       = ref(true)
-const error         = ref(null)
-const images        = ref([])
-const visibleImages = ref([])
-const loadedMap     = ref(Object.create(null))
-let startedRemainder = false
+const loading        = ref(true)
+const error          = ref(null)
+const images         = ref([])
+const visibleImages  = ref([])
+const loadedMap      = ref(Object.create(null))
 
-const keyFor     = (img, idx) => img?.path || img?.id || `idx-${idx}`
-const isLoaded   = key => !!loadedMap.value[key]
-const markLoaded = key => { loadedMap.value[key] = true }
+let startedRemainder  = false
+let remainderQueue    = []
+let firstTargetCount  = 0
+let firstLoadedCount  = 0
+let fetchController   = null
+
+const keyFor   = (img, idx) => img?.path || img?.id || `idx-${idx}`
+const isLoaded = key => !!loadedMap.value[key]
 
 function robustDecode (s) { try { return decodeURIComponent(s) } catch { return s } }
 function resolveCategory () {
@@ -84,8 +91,15 @@ function resolveCategory () {
 
 const baseUrl = (img) => img.display || img.thumb || img.url || '/placeholder.jpg'
 const withSize = (url, size) => {
-  try { const u = new URL(url, window.location.origin); u.searchParams.set('s', size); return u.toString() }
-  catch { return url.includes('?') ? url.replace(/([?&])s=[^&]+/, `$1s=${size}`) : `${url}?s=${size}` }
+  try {
+    const u = new URL(url, window.location.origin)
+    u.searchParams.set('s', size)
+    return u.toString()
+  } catch {
+    return url.includes('?')
+      ? url.replace(/([?&])s=[^&]+/, `$1s=${size}`)
+      : `${url}?s=${size}`
+  }
 }
 const sized = (img, size) => withSize(baseUrl(img), size)
 
@@ -112,6 +126,7 @@ function preconnectOnce () {
     document.head.appendChild(link)
   } catch {}
 }
+
 function preloadImage (href, imagesrcset, imagesizes) {
   try {
     const link = document.createElement('link')
@@ -123,6 +138,7 @@ function preloadImage (href, imagesrcset, imagesizes) {
     document.head.appendChild(link)
   } catch {}
 }
+
 function warmAndDecode (href) {
   try {
     const img = new Image()
@@ -132,36 +148,77 @@ function warmAndDecode (href) {
   } catch {}
 }
 
-function startRemainderBatches (items) {
+function startRemainderBatches () {
   if (startedRemainder) return
   startedRemainder = true
+
   let i = 0
+  const items = remainderQueue
+
   const step = () => {
     if (i >= items.length) return
     const end = Math.min(i + REM_BATCH_SIZE, items.length)
     visibleImages.value = visibleImages.value.concat(items.slice(i, end))
     i = end
-    if (i < items.length) requestAnimationFrame(step)
+
+    if (i < items.length) {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(step, { timeout: 800 })
+      } else {
+        setTimeout(step, 60)
+      }
+    }
   }
-  requestAnimationFrame(step)
+
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(step, { timeout: 800 })
+  } else {
+    setTimeout(step, 60)
+  }
+}
+
+/**
+ * Count loads for the first 6.
+ * Only after the first 6 are loaded do we begin appending the remainder.
+ */
+function markLoaded (key, idx) {
+  if (!loadedMap.value[key]) loadedMap.value[key] = true
+
+  if (idx < FIRST6_COUNT) {
+    firstLoadedCount++
+    if (firstLoadedCount >= firstTargetCount) {
+      startRemainderBatches()
+    }
+  }
 }
 
 async function fetchCategory () {
+  // Cancel any in-flight fetch so route changes don’t leave you stuck in loading
+  try { fetchController?.abort?.() } catch {}
+  fetchController = new AbortController()
+
   loading.value = true
   error.value   = null
   images.value  = []
   visibleImages.value = []
   loadedMap.value = Object.create(null)
+
   startedRemainder = false
+  remainderQueue   = []
+  firstLoadedCount = 0
+  firstTargetCount = 0
 
   try {
     preconnectOnce()
+
     const cat = resolveCategory()
     if (!cat) { error.value = 'Missing category in URL.'; loading.value = false; return }
 
     const res = await fetch(`/api/dropbox/by-category?category=${encodeURIComponent(cat)}`, {
       headers: { Accept: 'application/json' },
-      cache: 'no-store'
+      // KEY: allow caching again so navigating back is fast
+      cache: 'force-cache',
+      signal: fetchController.signal
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
@@ -170,18 +227,25 @@ async function fetchCategory () {
     images.value = list
 
     const first = list.slice(0, FIRST6_COUNT)
+    firstTargetCount = first.length
 
+    // Warm ONLY the first 6
     for (const it of first) {
       const href = sized(it, 'w768h512')
       preloadImage(href, srcsetFor(it), sizesForGrid)
       warmAndDecode(href)
     }
 
+    // Render ONLY the first 6
     visibleImages.value = first
 
-    const remainder = list.slice(FIRST6_COUNT)
-    requestAnimationFrame(() => startRemainderBatches(remainder))
+    // Queue remainder but do not start until first 6 have loaded
+    remainderQueue = list.slice(FIRST6_COUNT)
+
+    // Edge case: if there are fewer than 6 images, there’s no “wait”
+    if (firstTargetCount === 0) startRemainderBatches()
   } catch (e) {
+    if (e?.name === 'AbortError') return
     console.error('by-category error:', e)
     error.value = e?.message || 'Failed to load category images'
   } finally {
@@ -208,20 +272,104 @@ onMounted(fetchCategory)
 </script>
 
 <style scoped>
-.home-container { padding: 0; margin: 0 auto; max-width: 1800px; border-top: none !important; position: relative; }
-.project-grid { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; padding-top: .85rem; padding-bottom: .85rem; }
+.home-container {
+  padding: 0;
+  margin: 0 auto;
+  max-width: 1800px;
+  border-top: none !important;
+  position: relative;
+}
+
+/* TOP LINE */
+.work-top-line {
+  width: 100%;
+  border-top: .12rem solid #3e2723;
+}
+
+.project-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding-top: .85rem;
+  padding-bottom: .85rem;
+}
+
 .project-card { position: relative; }
-.card-container { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; margin: 0; cursor: pointer; }
-.skeleton { position: absolute; inset: 0; background: linear-gradient(90deg,rgba(0,0,0,0.06) 25%,rgba(0,0,0,0.10) 37%,rgba(0,0,0,0.06) 63%); background-size: 400% 100%; animation: shimmer 1.2s ease-in-out infinite; }
-@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
-.folder-thumbnail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important; transition: opacity .25s ease, filter .25s ease, transform .2s ease; opacity: 0; }
+
+.card-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  margin: 0;
+  cursor: pointer;
+}
+
+.skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.06) 25%,
+    rgba(0,0,0,0.10) 37%,
+    rgba(0,0,0,0.06) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.folder-thumbnail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0 !important;
+  transition: opacity .25s ease, filter .25s ease, transform .2s ease;
+  opacity: 0;
+}
+
 .project-card.loaded .skeleton { display: none; }
 .project-card.loaded .folder-thumbnail { opacity: 1; }
-.folder-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0); opacity: 0; transition: opacity 0.25s ease, background 0.25s ease; pointer-events: none; z-index: 2; }
-.card-container:hover .folder-overlay { background: rgba(255,255,255,0.15); opacity: 1; }
+
+.folder-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  opacity: 0;
+  transition: opacity 0.25s ease, background 0.25s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.card-container:hover .folder-overlay {
+  background: rgba(255,255,255,0.15);
+  opacity: 1;
+}
+
 .loading { text-align: center; padding: 2rem; color: #666; font-size: 1.1rem; }
 .error   { text-align: center; padding: 2rem; color: #ff4444; }
-@media (max-width: 1350px) { .project-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding-top: .85rem; padding-bottom: .85rem; } }
-@media (max-width: 1024px) { .project-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
-@media (max-width: 600px)  { .project-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; } }
+
+@media (max-width: 1350px) {
+  .project-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: .85rem;
+    padding-bottom: .85rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .project-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+}
+
+@media (max-width: 600px) {
+  .project-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+}
 </style>
